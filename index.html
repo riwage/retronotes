@@ -257,7 +257,9 @@
   .textblock ul.checklist { list-style: none; padding-left: 14px; }
   .textblock ul.checklist li { display: flex; align-items: flex-start; gap: 6px; }
   .textblock ul.checklist li input[type=checkbox] { margin: 3px 0 0 0; accent-color: var(--green); cursor: pointer; }
-  .textblock ul.checklist li.done { text-decoration: line-through; color: var(--text-soft); }
+  .textblock ul.checklist li.done { color: var(--text-soft); text-decoration: line-through; }
+  .textblock ul.checklist li.done input[type=checkbox] { text-decoration: none; }
+  .textblock ul.checklist li > *:not(input) { text-decoration: inherit; }
   .textblock img { max-width: 100%; height: auto; display: block; margin: 6px 0; border: 1px solid var(--border); }
   .textblock video { max-width: 100%; display: block; margin: 6px 0; border: 1px solid var(--border); }
   .textblock a.file-att {
@@ -536,6 +538,8 @@
 <div class="ctxmenu hidden" id="tbl-ctxmenu">
   <div onclick="ctxAddRow()">+ add row</div>
   <div onclick="ctxAddCol()">+ add column</div>
+  <div onclick="ctxDeleteRow()">delete this row</div>
+  <div onclick="ctxDeleteCol()">delete this column</div>
   <div class="danger" onclick="ctxDeleteTable()">delete table</div>
 </div>
 
@@ -1270,6 +1274,7 @@ function addTableBlock() {
 }
 function removeBlock(bi) {
   const n = currentNote(); if (!n) return;
+  clearTimeout(snapTimer); takeSnapshot();
   n.blocks.splice(bi, 1);
   if (n.blocks.length === 0) n.blocks.push({ type: 'text', html: '' });
   clearCellSel();
@@ -1314,6 +1319,15 @@ function renderBlocks() {
   };
   host.appendChild(tail);
 }
+/* is the caret at the very start of this list item's text? (ignoring its checkbox) */
+function caretAtItemStart(li) {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return false;
+  const r = sel.getRangeAt(0).cloneRange();
+  r.selectNodeContents(li);
+  r.setEnd(sel.anchorNode, sel.anchorOffset);
+  return r.toString().replace(/[\s\u00a0]/g, '') === '';
+}
 function placeCaretAtEnd(el) {
   el.focus();
   const r = document.createRange();
@@ -1352,7 +1366,7 @@ function renderTextBlock(b, bi) {
     }
   };
   ed.oninput = (e) => {
-    autoDashList(ed, b);
+    if (!autoFormatList(ed, b)) autoDashList(ed, b);
     normalizeChecklists(ed);
     b.html = ed.innerHTML;
     touch(currentNote());
@@ -1435,11 +1449,47 @@ function renderTextBlock(b, bi) {
         ed.querySelectorAll('ul.dashed ul:not(.dashed)').forEach(u => u.classList.add('dashed'));
         normalizeChecklists(ed);
       } else {
-        document.execCommand('insertHTML', false, '&nbsp;&nbsp;&nbsp;&nbsp;');
+        // plain paragraph: tab shifts the whole line, shift+tab shifts it back
+        let line = node;
+        while (line && line !== ed && line.parentElement !== ed) line = line.parentElement;
+        if (line && line !== ed && line.nodeType === 1) {
+          const cur = parseInt(line.style.marginLeft || '0', 10) || 0;
+          const next = Math.max(0, cur + (e.shiftKey ? -28 : 28));
+          line.style.marginLeft = next ? next + 'px' : '';
+        } else if (!e.shiftKey) {
+          document.execCommand('insertHTML', false, '&nbsp;&nbsp;&nbsp;&nbsp;');
+        }
       }
       b.html = ed.innerHTML;
       touch(currentNote());
       return;
+    }
+    if (e.key === 'Backspace') {
+      const sel = window.getSelection();
+      if (sel.isCollapsed && sel.anchorOffset === 0) {
+        let nd = sel.anchorNode;
+        if (nd && nd.nodeType === 3) nd = nd.parentElement;
+        const li = nd && nd.closest && nd.closest('li');
+        if (li && ed.contains(li) && caretAtItemStart(li)) {
+          e.preventDefault();
+          const nested = !!(li.parentElement && li.parentElement.parentElement &&
+                            li.parentElement.parentElement.closest('ul,ol'));
+          const cls = li.closest('ul,ol') ? li.closest('ul,ol').className : '';
+          document.execCommand('outdent');
+          if (nested) {
+            ed.querySelectorAll('ul.checklist ul:not(.checklist)').forEach(u => u.classList.add('checklist'));
+            ed.querySelectorAll('ul.dashed ul:not(.dashed)').forEach(u => u.classList.add('dashed'));
+          } else if (cls.includes('checklist')) {
+            ed.querySelectorAll('input[type=checkbox]').forEach(x => {
+              if (!x.closest('ul.checklist')) x.remove();
+            });
+          }
+          normalizeChecklists(ed);
+          b.html = ed.innerHTML;
+          touch(currentNote());
+          return;
+        }
+      }
     }
     if (e.key === 'Backspace' && ed.textContent === '' && !ed.querySelector('img,video,a')) {
       const n2 = currentNote();
@@ -1465,6 +1515,27 @@ function renderTextBlock(b, bi) {
 }
 
 /* typing "- " at the start of a line turns it into a dashed list */
+/* apple notes converts these as soon as you type the space:
+   "- " -> dashed, "* " -> bulleted, "1. " -> numbered  */
+function autoFormatList(ed, b) {
+  const sel = window.getSelection();
+  if (!sel.anchorNode || sel.anchorNode.nodeType !== 3) return false;
+  const node = sel.anchorNode;
+  const t = node.textContent;
+  if (node.parentElement && node.parentElement.closest('ul,ol')) return false;
+
+  let cmd = null, dashed = false;
+  if (/^-[\s\u00a0]$/.test(t) && sel.anchorOffset === 2) { cmd = 'insertUnorderedList'; dashed = true; }
+  else if (/^[*\u2022][\s\u00a0]$/.test(t) && sel.anchorOffset === 2) { cmd = 'insertUnorderedList'; }
+  else if (/^1[.)][\s\u00a0]$/.test(t) && sel.anchorOffset === 3) { cmd = 'insertOrderedList'; }
+  if (!cmd) return false;
+
+  node.textContent = '';
+  document.execCommand(cmd);
+  if (dashed) markDashed();
+  b.html = ed.innerHTML;
+  return true;
+}
 function autoDashList(ed, b) {
   const sel = window.getSelection();
   if (!sel.anchorNode || sel.anchorNode.nodeType !== 3) return;
@@ -1483,29 +1554,38 @@ function autoDashList(ed, b) {
 /* pressing Enter on a "- something" line converts it into a dashed list retroactively */
 function convertDashLineOnEnter(ed, b) {
   const sel = window.getSelection();
-  if (!sel.anchorNode) return false;
-  let lineEl = sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentElement : sel.anchorNode;
-  if (!ed.contains(lineEl)) return false;
-  if (lineEl.closest('ul,ol')) return false;
-  // find the line container (direct child of the editor, or the editor itself)
-  while (lineEl !== ed && lineEl.parentElement !== ed) lineEl = lineEl.parentElement;
-  const text = lineEl === ed ? ed.textContent : lineEl.textContent;
-  const m = text.match(/^-[\s\u00a0]+(.*)$/);
+  if (!sel.rangeCount || !sel.isCollapsed) return false;
+  let node = sel.anchorNode;
+  if (!node || !ed.contains(node)) return false;
+  if (node.nodeType === 1 && node.childNodes[sel.anchorOffset - 1]) node = node.childNodes[sel.anchorOffset - 1];
+  if (node.nodeType !== 3) return false;
+  const holder = node.parentElement;
+  if (holder && holder.closest('ul,ol')) return false;
+
+  // the current line is this text node, but only if nothing but a line break precedes it
+  const before = node.previousSibling;
+  if (before && before.nodeName !== 'BR') return false;
+  const text = node.textContent;
+  const m = text.match(/^-[\s\u00a0]*(.*)$/);
   if (!m) return false;
-  // select the line, turn it into a list, strip the "- " prefix
+
+  const rest = m[1];
   const r = document.createRange();
-  r.selectNodeContents(lineEl === ed ? ed : lineEl);
+  r.setStart(node, 0);
+  r.setEnd(node, text.length);
   sel.removeAllRanges(); sel.addRange(r);
   document.execCommand('insertUnorderedList');
   markDashed();
-  const li = window.getSelection().anchorNode;
-  let liEl = li.nodeType === 3 ? li.parentElement : li;
-  liEl = liEl.closest('li');
-  if (liEl) {
-    liEl.textContent = m[1];
-    placeCaretAtEnd(liEl);
+
+  // put the remaining text (if any) inside the new list item
+  const sel2 = window.getSelection();
+  let n2 = sel2.anchorNode;
+  if (n2 && n2.nodeType === 3) n2 = n2.parentElement;
+  const li = n2 && n2.closest && n2.closest('li');
+  if (li) {
+    li.textContent = rest;
+    placeCaretAtEnd(li);
   }
-  document.execCommand('insertParagraph'); // start the next dashed item
   b.html = ed.innerHTML;
   touch(currentNote());
   return true;
@@ -1594,7 +1674,7 @@ function handleAttach(input) {
 }
 
 /* ---------- tables ---------- */
-let ctxBi = null;
+let ctxBi = null, ctxRi = null, ctxCi = null;
 let cellSel = null;   // { bi, r1, c1, r2, c2 }
 let dragStart = null; // { bi, ri, ci }
 let dragMoved = false;
@@ -1608,7 +1688,35 @@ function tableAddCol(bi) {
   const b = currentNote().blocks[bi];
   if (b.rows[0].length >= 10) return;
   b.rows.forEach(r => r.push([]));
+  if (b.widths) b.widths.push(120);
   touch(currentNote()); renderBlocks();
+}
+function tableDeleteRow(bi, ri) {
+  const n = currentNote(); if (!n) return;
+  clearTimeout(snapTimer); takeSnapshot();
+  const b = n.blocks[bi]; if (!b || b.type !== 'table') return;
+  if (b.rows.length <= 1) { removeBlock(bi); return; }
+  b.rows.splice(ri, 1);
+  clearCellSel();
+  touch(n); renderBlocks();
+}
+function tableDeleteCol(bi, ci) {
+  const n = currentNote(); if (!n) return;
+  clearTimeout(snapTimer); takeSnapshot();
+  const b = n.blocks[bi]; if (!b || b.type !== 'table') return;
+  if (b.rows[0].length <= 1) { removeBlock(bi); return; }
+  b.rows.forEach(r => r.splice(ci, 1));
+  if (b.widths) b.widths.splice(ci, 1);
+  clearCellSel();
+  touch(n); renderBlocks();
+}
+function ctxDeleteRow() {
+  if (ctxBi !== null && ctxRi !== null) tableDeleteRow(ctxBi, ctxRi);
+  $('tbl-ctxmenu').classList.add('hidden');
+}
+function ctxDeleteCol() {
+  if (ctxBi !== null && ctxCi !== null) tableDeleteCol(ctxBi, ctxCi);
+  $('tbl-ctxmenu').classList.add('hidden');
 }
 function ctxAddRow() { if (ctxBi !== null) tableAddRow(ctxBi); $('tbl-ctxmenu').classList.add('hidden'); }
 function ctxAddCol() { if (ctxBi !== null) tableAddCol(ctxBi); $('tbl-ctxmenu').classList.add('hidden'); }
@@ -1660,7 +1768,12 @@ function copyCellSel(cut) {
   return true;
 }
 function pasteCellSel() {
-  const bb = selBounds(); if (!bb || !cellClipboard) return false;
+  let bb = selBounds();
+  // no range selected: paste starting at whichever cell the caret is in
+  if (!bb && lastCellCtx) {
+    bb = { bi: lastCellCtx.bi, ra: lastCellCtx.ri, rb: lastCellCtx.ri, ca: lastCellCtx.ci, cb: lastCellCtx.ci };
+  }
+  if (!bb || !cellClipboard) return false;
   const n = currentNote(); if (!n) return false;
   const b = n.blocks[bb.bi]; if (!b || b.type !== 'table') return false;
   for (let dr = 0; dr < cellClipboard.length; dr++) {
@@ -1672,7 +1785,11 @@ function pasteCellSel() {
       b.rows[tr][tc] = JSON.parse(JSON.stringify(cellClipboard[dr][dc]));
     }
   }
-  const keep = { ...cellSel };
+  const keep = {
+    bi: bb.bi, r1: bb.ra, c1: bb.ca,
+    r2: bb.ra + cellClipboard.length - 1,
+    c2: bb.ca + cellClipboard[0].length - 1
+  };
   touch(n); renderBlocks();
   cellSel = keep;
   setTimeout(applyCellSel, 0);
@@ -1681,6 +1798,7 @@ function pasteCellSel() {
 function deleteCellSelContents() {
   if (!cellSel) return;
   const n = currentNote(); if (!n) return;
+  clearTimeout(snapTimer); takeSnapshot();
   const b = n.blocks[cellSel.bi]; if (!b || b.type !== 'table') return;
   const [ra, rb] = [Math.min(cellSel.r1, cellSel.r2), Math.max(cellSel.r1, cellSel.r2)];
   const [ca, cb] = [Math.min(cellSel.c1, cellSel.c2), Math.max(cellSel.c1, cellSel.c2)];
@@ -1696,6 +1814,9 @@ function renderTableBlock(b, bi) {
   scroll.oncontextmenu = (e) => {
     e.preventDefault();
     ctxBi = bi;
+    const td = e.target.closest('[data-cell]');
+    ctxRi = td ? +td.dataset.ri : null;
+    ctxCi = td ? +td.dataset.ci : null;
     const m = $('tbl-ctxmenu');
     m.style.left = Math.min(e.clientX, window.innerWidth - 160) + 'px';
     m.style.top = e.clientY + 'px';
@@ -1716,6 +1837,19 @@ function renderTableBlock(b, bi) {
         dragStart = { bi, ri, ci };
         dragMoved = false;
       };
+      td.onmousemove = (e) => {
+        // dragging out of the starting cell switches from text selection to cell selection
+        if (dragStart && e.buttons === 1 && dragStart.bi === bi &&
+            (dragStart.ri !== ri || dragStart.ci !== ci)) {
+          if (!dragMoved) {
+            dragMoved = true;
+            window.getSelection().removeAllRanges();
+            if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+          }
+          cellSel = { bi, r1: dragStart.ri, c1: dragStart.ci, r2: ri, c2: ci };
+          applyCellSel();
+        }
+      };
       td.onmouseenter = (e) => {
         if (dragStart && e.buttons === 1 && dragStart.bi === bi &&
             (dragStart.ri !== ri || dragStart.ci !== ci || dragMoved)) {
@@ -1726,6 +1860,13 @@ function renderTableBlock(b, bi) {
           applyCellSel();
         }
       };
+      if (ri === 0) {
+        const grip = document.createElement('div');
+        grip.className = 'col-resize';
+        grip.onmousedown = (ev) => startColResize(ev, bi, ci, table);
+        grip.onclick = (ev) => ev.stopPropagation();
+        td.appendChild(grip);
+      }
       td.onclick = (e) => {
         if (dragMoved) { dragMoved = false; return; }
         if (e.target !== td) return;
@@ -1745,6 +1886,35 @@ function renderTableBlock(b, bi) {
   });
   scroll.appendChild(table);
   return scroll;
+}
+
+function startColResize(e, bi, ci, table) {
+  e.preventDefault(); e.stopPropagation();
+  const n = currentNote(); if (!n) return;
+  const b = n.blocks[bi]; if (!b || b.type !== 'table') return;
+
+  if (!b.widths || b.widths.length !== b.rows[0].length) {
+    const headCells = table.querySelectorAll('tr:first-of-type > th, tr:first-of-type > td');
+    b.widths = [...headCells].map(c => Math.round(c.getBoundingClientRect().width));
+    table.style.tableLayout = 'fixed';
+  }
+  const startX = e.clientX;
+  const startW = b.widths[ci];
+
+  const move = (ev) => {
+    const w = Math.max(60, startW + (ev.clientX - startX));
+    b.widths[ci] = w;
+    const col = table.querySelectorAll('colgroup col')[ci];
+    if (col) col.style.width = w + 'px';
+    table.style.width = b.widths.reduce((a, x) => a + x, 0) + 'px';
+  };
+  const up = () => {
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('mouseup', up);
+    touch(n); renderBlocks();
+  };
+  document.addEventListener('mousemove', move);
+  document.addEventListener('mouseup', up);
 }
 
 let focusPending = false;
@@ -1852,7 +2022,7 @@ function renderCellItem(block, bi, ri, ci, item, cell) {
     item.text = txt.textContent;
     touch(currentNote());
   };
-  txt.onmousedown = (e) => e.stopPropagation();
+
   txt.onkeydown = (e) => {
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -1882,6 +2052,13 @@ function renderCellItem(block, bi, ri, ci, item, cell) {
         touch(currentNote()); renderBlocks(); focusCellItem(bi, ri, ci, idx);
         return;
       }
+      // at the start of an already-empty row, backspace removes the whole row
+      if (ci === 0 && cell.length <= 1 &&
+          block.rows[ri].every(c => c.every(i => !i.text.trim()))) {
+        tableDeleteRow(bi, ri);
+        focusCellItem(bi, Math.max(0, ri - 1), 0, 0);
+        return;
+      }
       cell.splice(idx, 1);
       touch(currentNote()); renderBlocks();
       focusCellItem(bi, ri, ci, Math.max(0, idx - 1));
@@ -1899,6 +2076,89 @@ document.addEventListener('mousedown', (e) => {
   if (!e.target.closest('#list-notes') && !e.target.closest('#list-pinned')) sidebarFocus = false;
 });
 
+/* ---------- apple notes keyboard shortcuts ---------- */
+function inTextBlock() {
+  const ae = document.activeElement;
+  return ae && ae.classList && ae.classList.contains('textblock') ? ae : null;
+}
+function runFmt(fn) {
+  const ed = inTextBlock(); if (!ed) return false;
+  lastEditor = { el: ed, block: ed.__block };
+  fn();
+  normalizeChecklists(ed);
+  ed.__block.html = ed.innerHTML;
+  touch(currentNote());
+  return true;
+}
+function toggleLockFromKey() {
+  const n = currentNote(); if (!n) return;
+  if (n.lock && unlockedIds.has(n.id)) lockNow();
+  else if (!n.lock) { toggleMenu({ stopPropagation(){} }, 'lock-menu'); buildLockMenu(); }
+}
+function styleShortcut(e) {
+  const mod = e.metaKey || e.ctrlKey;
+  if (!mod) return false;
+  const ed = inTextBlock();
+  const k = e.key.toLowerCase();
+
+  if (e.shiftKey && ed) {
+    const blocks = { t: 'H1', h: 'H2', j: 'H3', b: 'P', m: 'PRE' };
+    if (blocks[k]) {
+      e.preventDefault();
+      runFmt(() => document.execCommand('formatBlock', false, blocks[k]));
+      return true;
+    }
+    if (k === 'l') {  // checklist
+      e.preventDefault();
+      toggleChecklist(e);
+      return true;
+    }
+    if (k === 'u') {  // toggle the checkbox on the current line
+      e.preventDefault();
+      const sel = window.getSelection();
+      let n2 = sel.anchorNode;
+      if (n2 && n2.nodeType === 3) n2 = n2.parentElement;
+      const li = n2 && n2.closest && n2.closest('ul.checklist li');
+      if (li) {
+        const cb = li.querySelector('input[type=checkbox]');
+        if (cb) {
+          const on = !cb.hasAttribute('checked');
+          if (on) cb.setAttribute('checked', 'checked'); else cb.removeAttribute('checked');
+          normalizeChecklists(ed);
+          ed.__block.html = ed.innerHTML;
+          touch(currentNote());
+        }
+      }
+      return true;
+    }
+    if (k === '7') { e.preventDefault(); runFmt(() => document.execCommand('insertOrderedList')); return true; }
+    if (k === '8') { e.preventDefault(); runFmt(() => document.execCommand('insertUnorderedList')); return true; }
+    if (k === '9') { e.preventDefault(); runFmt(() => { document.execCommand('insertUnorderedList'); markDashed(); }); return true; }
+  }
+
+  if (!e.shiftKey && ed) {
+    if (k === 'k') {   // add link
+      e.preventDefault();
+      const url = prompt('link to:');
+      if (url) runFmt(() => document.execCommand('createLink', false, url));
+      return true;
+    }
+  }
+
+  if (!e.shiftKey && ed && k === 'e') {   // cmd+e: monostyled toggle
+    e.preventDefault();
+    runFmt(() => document.execCommand('formatBlock', false, 'PRE'));
+    return true;
+  }
+  // note-level shortcuts, anywhere in the app
+  if (e.shiftKey && k === 'l' && !ed) { e.preventDefault(); toggleLockFromKey(); return true; }
+  if (e.shiftKey && k === 'n') { e.preventDefault(); newNote(); return true; }
+  if (e.shiftKey && k === 'd') { e.preventDefault(); duplicateNote(); return true; }
+  if (e.shiftKey && k === 'p') { e.preventDefault(); togglePin(); return true; }
+  if (k === 'f') { e.preventDefault(); $('search').focus(); $('search').select(); return true; }
+  return false;
+}
+
 /* ---------- global keys ---------- */
 function isEditing() {
   const ae = document.activeElement;
@@ -1907,20 +2167,34 @@ function isEditing() {
 document.addEventListener('keydown', (e) => {
   const mod = e.ctrlKey || e.metaKey;
 
+  if (styleShortcut(e)) return;
+
   if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) {
-    if (!isEditing() && binUndo.length && restoreLastTrashed()) { e.preventDefault(); return; }
-    e.preventDefault(); undo(); return;
+    e.preventDefault();
+    // only bring a deleted note back when you're working in the sidebar and
+    // there's nothing left to undo inside the note itself
+    const h = currentNote() ? historyFor(currentNote().id) : null;
+    const canUndoHere = h && h.idx > 0;
+    if (!canUndoHere && sidebarFocus && binUndo.length && restoreLastTrashed()) return;
+    undo();
+    return;
   }
   if (mod && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) {
     e.preventDefault(); redo(); return;
   }
 
-  // spreadsheet-style clipboard for a selected range of table cells
-  if (cellSel && mod) {
+  // spreadsheet-style clipboard for table cells
+  if (mod) {
     const k = e.key.toLowerCase();
-    if (k === 'c') { e.preventDefault(); copyCellSel(false); return; }
-    if (k === 'x') { e.preventDefault(); copyCellSel(true); return; }
-    if (k === 'v') { e.preventDefault(); pasteCellSel(); return; }
+    if (cellSel && k === 'c') { e.preventDefault(); copyCellSel(false); return; }
+    if (cellSel && k === 'x') { e.preventDefault(); copyCellSel(true); return; }
+    if (k === 'v' && cellClipboard && (cellSel || lastCellCtx)) {
+      // only intercept paste when we have cell content to place
+      if (cellSel || (lastCellCtx && document.activeElement &&
+          document.activeElement.classList.contains('ci-text'))) {
+        e.preventDefault(); pasteCellSel(); return;
+      }
+    }
   }
 
   if (cellSel && (e.key === 'Delete' || e.key === 'Backspace') && !isEditing()) {
