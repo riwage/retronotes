@@ -574,7 +574,7 @@ const binUndo = [];         // ids of recently trashed notes, for cmd+z restore
 let copiedNote = null;
 let sidebarFocus = false; // true right after clicking a note in the sidebar
 let animInId = null;      // note id to animate into the list
-const BIN_DAYS = 30;
+const BIN_DAYS = 14;
 
 const $ = id => document.getElementById(id);
 const now = () => Date.now();
@@ -939,13 +939,18 @@ function trashNote(id) {
   const n = notes.find(x => x.id === id); if (!n) return;
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
 
+  // remember what sits below this note, so we can select it afterwards
+  const list = activeNotes();
+  const pos = list.findIndex(x => x.id === id);
+  const successor = pos !== -1 ? (list[pos + 1] || list[pos - 1]) : null;
+
   const finish = () => {
     n.deletedAt = now();
     binUndo.push(id);
     scheduleSave();
     if (currentId === id) {
-      const next = activeNotes()[0];
-      if (next) openNote(next.id); else { showNoNote(); renderList(); }
+      if (successor) { openNote(successor.id); sidebarFocus = true; }
+      else { showNoNote(); renderList(); }
     } else renderList();
   };
 
@@ -969,11 +974,17 @@ function restoreNote(id) {
   if (li) { li.classList.add('anim-out'); setTimeout(doRestore, 160); } else doRestore();
 }
 function purgeNote(id) {
-  const n = notes.find(x => x.id === id);
-  const name = (n && n.title) || 'untitled note';
-  let ok = true;
-  try { ok = confirm('delete "' + name + '" forever? this cannot be undone.'); } catch (e) {}
-  if (!ok) return;
+  const li = document.querySelector('#list-deleted li[data-id="' + id + '"]');
+  const finish = () => {
+    notes = notes.filter(x => x.id !== id);
+    delete histories[id];
+    scheduleSave();
+    renderList();
+  };
+  if (li) { li.classList.add('anim-out'); setTimeout(finish, 160); } else finish();
+  return;
+}
+function purgeNoteOld(id) {
   notes = notes.filter(x => x.id !== id);
   delete histories[id];
   scheduleSave();
@@ -1342,16 +1353,28 @@ function renderTextBlock(b, bi) {
       if (n0 && n0.nodeType === 3) n0 = n0.parentElement;
       const li0 = n0 && n0.closest && n0.closest('li');
       if (li0 && ed.contains(li0) && li0.textContent.trim() === '') {
+        const inCheck = !!li0.closest('ul.checklist');
         const depth = (() => { let d = 0, u = li0.closest('ul,ol');
           while (u && ed.contains(u)) { d++; u = u.parentElement && u.parentElement.closest('ul,ol'); } return d; })();
         if (depth > 1) {
           e.preventDefault();
           const wasDashed = !!li0.closest('ul.dashed');
-          const wasCheck = !!li0.closest('ul.checklist');
           document.execCommand('outdent');
           ed.querySelectorAll('ul ul').forEach(u => {
             if (wasDashed) u.classList.add('dashed');
-            if (wasCheck) u.classList.add('checklist');
+            if (inCheck) u.classList.add('checklist');
+          });
+          if (inCheck) normalizeChecklists(ed);
+          b.html = ed.innerHTML;
+          touch(currentNote());
+          return;
+        }
+        // at the outermost level, a second enter ends the list entirely
+        if (depth === 1) {
+          e.preventDefault();
+          document.execCommand('insertUnorderedList');   // toggles the list off
+          ed.querySelectorAll('input[type=checkbox]').forEach(cb => {
+            if (!cb.closest('ul.checklist')) cb.remove();
           });
           b.html = ed.innerHTML;
           touch(currentNote());
