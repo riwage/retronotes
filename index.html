@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>retronotes</title>
+<link rel="icon" type="image/svg+xml" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g stroke="%232e8b2e" stroke-width="8" stroke-linecap="round"><line x1="50" y1="6" x2="50" y2="26"/><line x1="50" y1="94" x2="50" y2="74"/><line x1="6" y1="50" x2="26" y2="50"/><line x1="94" y1="50" x2="74" y2="50"/><line x1="19" y1="19" x2="33" y2="33"/><line x1="81" y1="81" x2="67" y2="67"/><line x1="19" y1="81" x2="33" y2="67"/><line x1="81" y1="19" x2="67" y2="33"/></g><g fill="%232e8b2e"><polygon points="50,45 39,24 61,24"/><polygon points="50,55 39,76 61,76"/><polygon points="45,50 24,39 24,61"/><polygon points="55,50 76,39 76,61"/><polygon points="42,42 24,36 36,24"/><polygon points="58,58 76,64 64,76"/><polygon points="42,58 36,76 24,64"/><polygon points="58,42 64,24 76,36"/></g></svg>'>
 <style>
   :root {
     --green: #2e8b2e;
@@ -51,7 +52,6 @@
   a.action::before { content: "[ "; color: #999; }
   a.action::after { content: " ]"; color: #999; }
 
-  /* ---- top bar ---- */
   .topbar {
     background: var(--green-bg);
     border-bottom: 1px solid var(--border);
@@ -64,12 +64,7 @@
   }
   .topbar a { color: var(--green-dark); }
 
-  .masthead {
-    padding: 14px 18px 6px 18px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
+  .masthead { padding: 14px 18px 6px 18px; display: flex; align-items: center; gap: 12px; }
   .logo-mark { width: 34px; height: 34px; flex-shrink: 0; }
   .logo {
     font-family: "Trebuchet MS", Tahoma, sans-serif;
@@ -79,13 +74,7 @@
     letter-spacing: -1px;
   }
 
-  /* ---- layout ---- */
-  .wrap {
-    display: flex;
-    gap: 14px;
-    padding: 10px 18px 40px 18px;
-    align-items: flex-start;
-  }
+  .wrap { display: flex; gap: 14px; padding: 10px 18px 40px 18px; align-items: flex-start; }
   .sidebar { width: 260px; flex-shrink: 0; }
   .main { flex: 1; min-width: 0; }
 
@@ -123,7 +112,7 @@
     background: var(--panel-bg);
     color: var(--text);
   }
-  .searchbox:focus { outline: 1px solid var(--green); background: var(--yellow-soft); }
+  .searchbox:focus { outline: 1px solid var(--green); }
 
   .notelist { list-style: none; margin: 0; padding: 0; }
   .notelist li {
@@ -135,13 +124,27 @@
   .notelist li:last-child { border-bottom: none; }
   .notelist li:hover { background: var(--yellow); }
   .notelist li.active { background: var(--yellow); }
+  .notelist li.nl-group {
+    background: var(--panel-bg);
+    color: var(--text-soft);
+    font-weight: bold;
+    font-size: 11px;
+    padding: 7px 8px 3px 8px;
+    cursor: default;
+    border-bottom: none;
+  }
+  .notelist li.nl-group:hover { background: var(--panel-bg); }
   .notelist .nl-title { color: var(--link); text-decoration: underline; font-size: 13px; }
   .notelist li.active .nl-title { color: var(--green-dark); }
   .notelist .nl-meta { font-size: 11px; color: var(--text-soft); margin-top: 2px; }
   .pin-flag { color: var(--green); font-size: 11px; }
+  .lock-flag { font-size: 11px; }
   .empty-msg { color: var(--text-soft); font-size: 12px; padding: 6px 8px; font-style: italic; }
+  .bin-links { font-size: 11px; margin-top: 2px; }
+  .bin-links a { margin-right: 8px; text-decoration: none; color: var(--green-dark); }
+  .bin-links a.purge { color: #b03030; }
+  .bin-links a:hover { text-decoration: underline; }
 
-  /* ---- editor ---- */
   .editor-head {
     display: flex;
     justify-content: space-between;
@@ -174,8 +177,7 @@
   .tbtn.danger:hover { background: #ffecec; color: #b03030; }
   .tbtn b, .tbtn i, .tbtn u, .tbtn s { pointer-events: none; }
 
-  /* Aa formatting menu */
-  .fmt-menu {
+  .dropdown {
     position: absolute;
     top: 100%;
     left: 6px;
@@ -186,18 +188,23 @@
     padding: 8px;
     min-width: 190px;
   }
-  .fmt-row { display: flex; gap: 4px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px dotted var(--border); }
-  .fmt-item {
-    display: block;
-    padding: 5px 8px;
-    cursor: pointer;
-    user-select: none;
-  }
+  .fmt-item { display: block; padding: 5px 8px; cursor: pointer; user-select: none; }
   .fmt-item:hover { background: var(--green-bg); }
   .fmt-title { font-size: 20px; font-weight: bold; }
   .fmt-heading { font-size: 16px; font-weight: bold; }
   .fmt-subheading { font-size: 14px; font-weight: bold; }
   .fmt-mono { font-family: "Courier New", monospace; }
+  .dropdown input {
+    width: 100%;
+    font-family: inherit;
+    font-size: 12px;
+    padding: 5px;
+    border: 1px solid var(--border);
+    margin: 4px 0;
+    background: var(--panel-bg);
+    color: var(--text);
+  }
+  .dropdown .dd-err { color: #b03030; font-size: 11px; padding: 2px 0; }
 
   .title-input {
     width: 100%;
@@ -211,20 +218,12 @@
     color: var(--text);
     background: transparent;
   }
-  .title-input:focus { border-bottom: 1px dashed var(--green); background: var(--yellow-soft); }
+  .title-input:focus { border-bottom: 1px dashed var(--green); }
   .note-date { font-size: 11px; color: var(--text-soft); text-align: center; padding: 4px; }
 
   .blocks { padding: 8px; }
   .block { margin-bottom: 12px; position: relative; }
-  .block-tools {
-    font-size: 11px;
-    text-align: right;
-    visibility: hidden;
-    margin-bottom: 2px;
-  }
-  .block:hover .block-tools { visibility: visible; }
 
-  /* rich text block */
   .textblock {
     min-height: 24px;
     outline: none;
@@ -233,7 +232,6 @@
     font-size: 13px;
     word-break: break-word;
   }
-  .textblock:focus { background: var(--yellow-soft); }
   .textblock:empty::before { content: attr(data-ph); color: #aaa; }
   .textblock h1 { font-size: 20px; margin: 4px 0; }
   .textblock h2 { font-size: 16px; margin: 4px 0; }
@@ -256,38 +254,28 @@
   .textblock ul.dashed { list-style: none; padding-left: 20px; }
   .textblock ul.dashed li::before { content: "\2013\00a0\00a0"; color: #666; }
   .textblock img { max-width: 100%; height: auto; display: block; margin: 6px 0; border: 1px solid var(--border); }
-
-  /* ---- tables ---- */
-  .table-scroll { overflow-x: auto; max-width: 100%; }
-  table.ntable {
-    border-collapse: collapse;
-    width: 100%;
-    font-size: 12px;
+  .textblock video { max-width: 100%; display: block; margin: 6px 0; border: 1px solid var(--border); }
+  .textblock a.file-att {
+    display: inline-block;
+    border: 1px solid var(--border);
+    background: var(--green-bg);
+    padding: 4px 8px;
+    margin: 4px 0;
+    text-decoration: none;
+    color: var(--green-dark);
   }
+
+  .table-scroll { overflow-x: auto; max-width: 100%; }
+  table.ntable { border-collapse: collapse; width: 100%; font-size: 12px; user-select: none; }
   table.ntable td, table.ntable th {
     border: 1px solid var(--border);
     padding: 5px 6px;
     vertical-align: top;
     min-width: 88px;
+    cursor: text;
   }
-  table.ntable th {
-    background: var(--green-bg);
-    color: var(--green-dark);
-    text-align: left;
-  }
-  .block.tbl-selected .table-scroll {
-    outline: 2px solid var(--green);
-    background: var(--green-bg);
-  }
-  .block.tbl-selected table.ntable td { background: var(--green-bg2); }
-  .block.tbl-selected table.ntable th { background: var(--green-bg2); }
-  .tbl-hint {
-    display: none;
-    font-size: 11px;
-    color: var(--green-dark);
-    padding: 2px 0;
-  }
-  .block.tbl-selected .tbl-hint { display: block; }
+  table.ntable th { background: var(--green-bg); color: var(--green-dark); text-align: left; }
+  table.ntable td.cell-sel, table.ntable th.cell-sel { background: var(--green-bg2) !important; outline: 1px solid var(--green); }
 
   .cell-item { display: flex; align-items: flex-start; gap: 5px; margin-bottom: 3px; }
   .cell-item input[type=checkbox] { margin: 2px 0 0 0; flex-shrink: 0; cursor: pointer; accent-color: var(--green); }
@@ -297,93 +285,70 @@
     outline: none;
     line-height: 1.35;
     word-break: break-word;
+    user-select: text;
   }
-  .cell-item .ci-text:focus { background: var(--yellow-soft); }
   .cell-item.done .ci-text { text-decoration: line-through; color: #999; }
-  .cell-add { font-size: 10px; visibility: hidden; white-space: nowrap; }
-  td:hover .cell-add, th:hover .cell-add { visibility: visible; }
-  .cell-add a { color: #999; text-decoration: none; margin-right: 6px; }
-  .cell-add a:hover { color: var(--green-dark); text-decoration: underline; }
   .ci-del { color: #ccc; text-decoration: none; font-size: 11px; visibility: hidden; flex-shrink: 0; }
   .cell-item:hover .ci-del { visibility: visible; }
   .ci-del:hover { color: #b03030; }
 
-  /* ---- login ---- */
+  .ctxmenu {
+    position: fixed;
+    z-index: 50;
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.12);
+    min-width: 140px;
+  }
+  .ctxmenu div { padding: 6px 12px; cursor: pointer; }
+  .ctxmenu div:hover { background: var(--green-bg); }
+  .ctxmenu div.danger { color: #b03030; }
+
+  .locked-box { text-align: center; padding: 40px 10px; }
+  .locked-box input {
+    font-family: inherit; font-size: 13px; padding: 6px;
+    border: 1px solid var(--border); background: var(--panel-bg); color: var(--text);
+    width: 220px; margin: 8px 0;
+  }
+  .locked-err { color: #b03030; font-size: 12px; }
+
   .login-wrap { max-width: 400px; margin: 60px auto; text-align: center; padding: 0 14px; }
   .login-box { border: 1px solid var(--border); padding: 24px; background: var(--green-bg); }
   .login-box input {
-    width: 100%;
-    font-family: inherit;
-    font-size: 14px;
-    padding: 7px;
-    border: 1px solid var(--border);
-    margin: 10px 0;
-    background: var(--panel-bg);
-    color: var(--text);
+    width: 100%; font-family: inherit; font-size: 14px; padding: 7px;
+    border: 1px solid var(--border); margin: 10px 0;
+    background: var(--panel-bg); color: var(--text);
   }
   .g-btn {
-    display: inline-block;
-    border: 2px solid var(--green);
-    background: var(--panel-bg);
-    color: var(--green-dark);
-    font-weight: bold;
-    padding: 8px 18px;
-    font-size: 14px;
-    cursor: pointer;
-    font-family: inherit;
+    display: inline-block; border: 2px solid var(--green); background: var(--panel-bg);
+    color: var(--green-dark); font-weight: bold; padding: 8px 18px; font-size: 14px;
+    cursor: pointer; font-family: inherit;
   }
   .g-btn:hover { background: var(--green-bg2); }
   .login-tabs { display: flex; justify-content: center; gap: 18px; }
-  .login-tab {
-    font-weight: bold;
-    font-size: 14px;
-    color: #7a9a7a;
-    text-decoration: none;
-    padding-bottom: 2px;
-  }
+  .login-tab { font-weight: bold; font-size: 14px; color: #7a9a7a; text-decoration: none; padding-bottom: 2px; }
   .login-tab.active { color: var(--green-dark); border-bottom: 2px solid var(--green); }
   .login-tab:hover { color: var(--green-dark); }
   .login-error {
-    background: #ffecec;
-    border: 1px solid #d8a0a0;
-    color: #92322e;
-    font-size: 12px;
-    padding: 6px 8px;
-    margin-bottom: 10px;
-    text-align: left;
+    background: #ffecec; border: 1px solid #d8a0a0; color: #92322e;
+    font-size: 12px; padding: 6px 8px; margin-bottom: 10px; text-align: left;
   }
-  .login-error.ok {
-    background: var(--green-bg2);
-    border-color: var(--green);
-    color: var(--green-dark);
-  }
+  .login-error.ok { background: var(--green-bg2); border-color: var(--green); color: var(--green-dark); }
   .pw-wrap { position: relative; }
   .pw-wrap input { padding-right: 52px; }
   .pw-toggle {
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 11px;
-    color: var(--green-dark);
-    text-decoration: none;
-    user-select: none;
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    font-size: 11px; color: var(--green-dark); text-decoration: none; user-select: none;
   }
   .pw-toggle:hover { text-decoration: underline; }
   .forgot-link {
-    display: block;
-    text-align: right;
-    font-size: 11px;
-    margin: -4px 0 10px 0;
-    color: var(--green-dark);
-    text-decoration: none;
+    display: block; text-align: right; font-size: 11px; margin: -4px 0 10px 0;
+    color: var(--green-dark); text-decoration: none;
   }
   .forgot-link:hover { text-decoration: underline; }
-  .fineprint { font-size: 11px; color: #888; margin-top: 14px; line-height: 1.5; }
   .hr-dotted { border: none; border-top: 1px dotted var(--border); margin: 12px 0; }
 
   .hidden { display: none !important; }
-
   @media (max-width: 720px) {
     .wrap { flex-direction: column; }
     .sidebar { width: 100%; }
@@ -399,7 +364,6 @@
 
 <div class="masthead">
   <svg class="logo-mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <!-- entropy diagram, reversed: 8 arrows pointing inward, chunky heads -->
     <g stroke="var(--green-dark)" stroke-width="8" stroke-linecap="round">
       <line x1="50" y1="6"  x2="50" y2="26"/>
       <line x1="50" y1="94" x2="50" y2="74"/>
@@ -424,7 +388,7 @@
   <div class="logo">retronotes</div>
 </div>
 
-<!-- ============ LOGIN VIEW ============ -->
+<!-- ============ LOGIN ============ -->
 <div id="view-login" class="login-wrap hidden">
   <div class="login-box">
     <div class="login-tabs">
@@ -453,7 +417,7 @@
   </div>
 </div>
 
-<!-- ============ RESET PASSWORD VIEW ============ -->
+<!-- ============ RESET PASSWORD ============ -->
 <div id="view-reset" class="login-wrap hidden">
   <div class="login-box">
     <div style="font-weight:bold; font-size:14px; color:var(--green-dark);">set a new password</div>
@@ -472,7 +436,7 @@
   </div>
 </div>
 
-<!-- ============ APP VIEW ============ -->
+<!-- ============ APP ============ -->
 <div id="view-app" class="wrap hidden">
 
   <div class="sidebar">
@@ -494,30 +458,41 @@
         <div class="empty-msg hidden" id="empty-notes">no notes yet.</div>
       </div>
     </div>
+
+    <div class="panel">
+      <div class="panel-h">&#128465; recently deleted</div>
+      <div style="padding:0;">
+        <ul class="notelist" id="list-deleted"></ul>
+        <div class="empty-msg hidden" id="empty-deleted">bin is empty</div>
+      </div>
+    </div>
   </div>
 
   <div class="main">
     <div class="panel" id="editor-panel">
       <div class="editor-head">
         <div class="editor-tools">
-          <span class="tbtn" title="format text" onclick="toggleFmtMenu(event)">Aa</span>
+          <span class="tbtn" title="format text" onclick="toggleMenu(event,'fmt-menu')">Aa</span>
           <span class="tbtn" title="bold" onmousedown="fmt(event,'bold')"><b>B</b></span>
           <span class="tbtn" title="italic" onmousedown="fmt(event,'italic')"><i>I</i></span>
           <span class="tbtn" title="underline" onmousedown="fmt(event,'underline')"><u>U</u></span>
           <span class="tbtn" title="strikethrough" onmousedown="fmt(event,'strikeThrough')"><s>S</s></span>
           <span style="width:6px;"></span>
-          <span class="tbtn" title="add text" onclick="addTextBlock()">&#182;</span>
+          <span class="tbtn" title="checklist item (in a table cell)" onmousedown="toggleChecklist(event)">&#9745;</span>
           <span class="tbtn" title="add table" onclick="addTableBlock()">&#8862;</span>
+          <span class="tbtn" title="attach" onclick="toggleMenu(event,'attach-menu')">&#128206;</span>
           <span style="width:6px;"></span>
           <span class="tbtn" title="undo (ctrl+z)" onclick="undo()">&#8630;</span>
           <span class="tbtn" title="redo (ctrl+shift+z)" onclick="redo()">&#8631;</span>
         </div>
         <div class="editor-tools">
+          <span class="tbtn" id="lock-btn" title="lock note" onclick="toggleMenu(event,'lock-menu'); buildLockMenu()">&#128274;</span>
+          <span class="tbtn" title="duplicate note" onclick="duplicateNote()">&#10697;</span>
           <span class="tbtn" id="pin-btn" title="pin note" onclick="togglePin()">&#128204;</span>
-          <span class="tbtn danger" title="delete note" onclick="deleteNote()">&#128465;</span>
+          <span class="tbtn danger" title="move to recently deleted" onclick="trashCurrent()">&#128465;</span>
         </div>
 
-        <div class="fmt-menu hidden" id="fmt-menu">
+        <div class="dropdown hidden" id="fmt-menu">
           <div class="fmt-item fmt-title" onmousedown="fmt(event,'formatBlock','h1')">Title</div>
           <div class="fmt-item fmt-heading" onmousedown="fmt(event,'formatBlock','h2')">Heading</div>
           <div class="fmt-item fmt-subheading" onmousedown="fmt(event,'formatBlock','h3')">Subheading</div>
@@ -530,9 +505,18 @@
           <hr class="hr-dotted">
           <div class="fmt-item" onmousedown="fmt(event,'formatBlock','blockquote')">&#124; Block Quote</div>
         </div>
+
+        <div class="dropdown hidden" id="attach-menu">
+          <div class="fmt-item" onclick="pickFile('file-photo')">&#128444; Choose Photo or Video</div>
+          <div class="fmt-item" onclick="pickFile('file-any')">&#128196; Attach File</div>
+          <div class="fmt-item" onclick="pickFile('file-camera')">&#128247; Take Photo</div>
+        </div>
+
+        <div class="dropdown hidden" id="lock-menu" style="left:auto; right:6px;"></div>
       </div>
       <div class="note-date" id="note-date"></div>
-      <input type="text" class="title-input" id="note-title" placeholder="untitled note" oninput="onTitleInput()">
+      <input type="text" class="title-input" id="note-title" placeholder="untitled note"
+             oninput="onTitleInput()" onkeydown="if(event.key==='Enter'){event.preventDefault(); focusFirstText();}">
       <div class="blocks" id="blocks"></div>
     </div>
     <div class="empty-msg" id="no-note-msg" style="text-align:center; padding:40px; font-size:13px;">
@@ -542,34 +526,27 @@
 
 </div>
 
+<div class="ctxmenu hidden" id="tbl-ctxmenu">
+  <div onclick="ctxAddRow()">+ add row</div>
+  <div onclick="ctxAddCol()">+ add column</div>
+  <div class="danger" onclick="ctxDeleteTable()">delete table</div>
+</div>
+
+<input type="file" id="file-photo" class="hidden" accept="image/*,video/*" onchange="handleAttach(this)">
+<input type="file" id="file-any" class="hidden" onchange="handleAttach(this)">
+<input type="file" id="file-camera" class="hidden" accept="image/*" capture="environment" onchange="handleAttach(this)">
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* =========================================================
-   retronotes v2 (supabase edition)
+   retronotes v3
    ========================================================= */
 
-let USER = null;
-let notes = [];
-let currentId = null;
-let saveTimer = null;
-let lastEditor = null;        // last focused rich-text block element + its data
-let selectedTableBi = null;   // index of the selected table block
-let applyingHistory = false;
-
-const $ = id => document.getElementById(id);
-const now = () => Date.now();
-const uid = () => 'n' + Math.random().toString(36).slice(2, 9);
-
-/* ---------- supabase setup ----------
-   1. create a free project at supabase.com
-   2. run supabase.sql in the SQL editor
-   3. paste your Project URL and anon public key below (Settings -> API) */
+/* ---------- supabase setup ---------- */
 const SUPABASE_URL = 'https://dmucubxjvronhwmymaom.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtdWN1YnhqdnJvbmh3bXltYW9tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc1MzUyMTMsImV4cCI6MjEwMzExMTIxM30.uUmw1nfxXzIFrwIuGzUnNeI6ANH9NXIQ0-vR6nLs2UQ';
 
 const CONFIGURED = !SUPABASE_URL.includes('PASTE_YOUR');
-// "remember me" decides where the login token lives:
-// localStorage survives closing the browser, sessionStorage doesn't
 const authStorage = {
   getItem: k => (localStorage.getItem('rn-remember') === 'no' ? sessionStorage : localStorage).getItem(k),
   setItem: (k, v) => (localStorage.getItem('rn-remember') === 'no' ? sessionStorage : localStorage).setItem(k, v),
@@ -579,6 +556,23 @@ const sb = CONFIGURED
   ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { storage: authStorage } })
   : null;
 
+/* ---------- state ---------- */
+let USER = null;
+let notes = [];
+let currentId = null;
+let saveTimer = null;
+let lastEditor = null;      // { el, block } for rich text blocks
+let lastCellCtx = null;     // { item, cell, bi } for table cell items
+let applyingHistory = false;
+const unlockedIds = new Set();
+const binUndo = [];         // ids of recently trashed notes, for cmd+z restore
+let copiedNote = null;
+const BIN_DAYS = 30;
+
+const $ = id => document.getElementById(id);
+const now = () => Date.now();
+const uid = () => 'n' + Math.random().toString(36).slice(2, 9);
+
 /* ---------- persistence ---------- */
 async function loadNotes() {
   notes = [];
@@ -587,7 +581,6 @@ async function loadNotes() {
       .select('data').eq('user_id', USER.id).maybeSingle();
     if (!error && data && data.data) notes = data.data;
   } catch (e) { notes = []; }
-  // migrate v1 text blocks (plain text) to rich html
   for (const n of notes) for (const b of n.blocks) {
     if (b.type === 'text' && b.text !== undefined && b.html === undefined) {
       const esc = document.createElement('div');
@@ -596,11 +589,11 @@ async function loadNotes() {
       delete b.text;
     }
   }
+  // purge bin items older than 30 days
+  const cutoff = now() - BIN_DAYS * 86400000;
+  notes = notes.filter(n => !n.deletedAt || n.deletedAt > cutoff);
 }
-function scheduleSave() {
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(saveNotes, 500);
-}
+function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(saveNotes, 500); }
 async function saveNotes(attempt) {
   attempt = attempt || 1;
   try {
@@ -614,19 +607,18 @@ async function saveNotes(attempt) {
   }
 }
 
-/* ---------- undo / redo ---------- */
-const histories = {}; // noteId -> { stack: [snap], idx }
-let snapTimer = null;
+/* ---------- crypto helper (note locks) ---------- */
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
+/* ---------- undo / redo (editor) ---------- */
+const histories = {};
+let snapTimer = null;
 function snapOf(n) { return JSON.stringify({ title: n.title, pinned: n.pinned, blocks: n.blocks }); }
-function historyFor(id) {
-  if (!histories[id]) histories[id] = { stack: [], idx: -1 };
-  return histories[id];
-}
-function initHistory(n) {
-  const h = historyFor(n.id);
-  if (h.stack.length === 0) { h.stack.push(snapOf(n)); h.idx = 0; }
-}
+function historyFor(id) { if (!histories[id]) histories[id] = { stack: [], idx: -1 }; return histories[id]; }
+function initHistory(n) { const h = historyFor(n.id); if (h.stack.length === 0) { h.stack.push(snapOf(n)); h.idx = 0; } }
 function scheduleSnapshot() {
   if (applyingHistory) return;
   clearTimeout(snapTimer);
@@ -668,9 +660,8 @@ function applySnapshot(n, snap) {
   applyingHistory = false;
 }
 
-/* ---------- session & auth ---------- */
+/* ---------- auth ---------- */
 let authMode = 'signin';
-
 function setAuthMode(m) {
   authMode = m;
   $('tab-signin').classList.toggle('active', m === 'signin');
@@ -693,6 +684,7 @@ function togglePw(inputId, link) {
   inp.type = show ? 'text' : 'password';
   link.textContent = show ? 'hide' : 'show';
 }
+function validEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email); }
 async function forgotPassword() {
   if (!CONFIGURED) { authError('app is not configured yet (see README).'); return; }
   const email = $('login-email').value.trim().toLowerCase();
@@ -716,22 +708,14 @@ async function submitNewPassword() {
     USER = session.user;
     $('view-reset').classList.add('hidden');
     await enterApp();
-  } else {
-    location.reload();
-  }
-}
-function validEmail(email) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+  } else location.reload();
 }
 async function submitAuth() {
-  if (!CONFIGURED) { authError('app is not configured yet: add your supabase keys to index.html (see README).'); return; }
+  if (!CONFIGURED) { authError('app is not configured yet (see README).'); return; }
   const email = $('login-email').value.trim().toLowerCase();
   const pw = $('login-password').value;
-
   if (!validEmail(email)) { authError('please enter a valid email address.'); return; }
   if (!pw) { authError('please enter your password.'); return; }
-
-  // set remember preference BEFORE logging in so the token is stored in the right place
   localStorage.setItem('rn-remember', $('remember-me').checked ? 'yes' : 'no');
 
   if (authMode === 'signup') {
@@ -740,7 +724,6 @@ async function submitAuth() {
     const { data, error } = await sb.auth.signUp({ email, password: pw });
     if (error) { authError(error.message.toLowerCase()); return; }
     if (!data.session) {
-      // email confirmation is turned on in supabase
       setAuthMode('signin');
       authError('account created. check your email for a confirmation link, then sign in.');
       return;
@@ -759,7 +742,6 @@ async function submitAuth() {
 async function init() {
   loadTheme();
   if (CONFIGURED) {
-    // when the user arrives via the reset email link, show the new-password form
     sb.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         $('view-login').classList.add('hidden');
@@ -778,21 +760,6 @@ async function logout() {
   try { await sb.auth.signOut(); } catch (e) {}
   location.reload();
 }
-
-/* ---------- theme (device preference, plain localStorage) ---------- */
-function setTheme(t) {
-  document.documentElement.setAttribute('data-theme', t);
-  $('theme-toggle').innerHTML = t === 'dark' ? '&#9788; light' : '&#9789; dark';
-}
-function loadTheme() {
-  setTheme(localStorage.getItem('rn-theme') === 'dark' ? 'dark' : 'light');
-}
-function toggleTheme() {
-  const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-  setTheme(t);
-  localStorage.setItem('rn-theme', t);
-}
-
 async function enterApp() {
   $('view-login').classList.add('hidden');
   $('view-app').classList.remove('hidden');
@@ -800,41 +767,35 @@ async function enterApp() {
   $('acct-email').textContent = USER.email;
   await loadNotes();
   renderList();
-  const first = sortedNotes()[0];
+  const first = activeNotes()[0];
   if (first) openNote(first.id); else showNoNote();
 }
 
-/* ---------- note list ---------- */
-function sortedNotes() { return [...notes].sort((a, b) => b.updated - a.updated); }
-function renderList() {
-  const q = $('search').value.trim().toLowerCase();
-  const pinnedUl = $('list-pinned'), notesUl = $('list-notes');
-  pinnedUl.innerHTML = ''; notesUl.innerHTML = '';
-  let pc = 0, nc = 0;
-  for (const n of sortedNotes()) {
-    if (q && !noteText(n).toLowerCase().includes(q)) continue;
-    const li = document.createElement('li');
-    if (n.id === currentId) li.classList.add('active');
-    const d = new Date(n.updated);
-    li.innerHTML = '<span class="nl-title"></span>' +
-      (n.pinned ? ' <span class="pin-flag">&#9733;</span>' : '') +
-      '<div class="nl-meta"></div>';
-    li.querySelector('.nl-title').textContent = n.title || 'untitled note';
-    li.querySelector('.nl-meta').textContent = d.toLocaleDateString() + ' ' +
-      d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' · ' + preview(n);
-    li.onclick = () => openNote(n.id);
-    if (n.pinned) { pinnedUl.appendChild(li); pc++; } else { notesUl.appendChild(li); nc++; }
-  }
-  $('empty-pinned').classList.toggle('hidden', pc > 0);
-  $('empty-notes').classList.toggle('hidden', nc > 0);
-  $('note-count').textContent = '(' + notes.length + ')';
+/* ---------- theme ---------- */
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  $('theme-toggle').innerHTML = t === 'dark' ? '&#9788; light' : '&#9789; dark';
 }
-function stripHtml(html) {
-  const d = document.createElement('div'); d.innerHTML = html || '';
-  return d.textContent || '';
+function loadTheme() { setTheme(localStorage.getItem('rn-theme') === 'dark' ? 'dark' : 'light'); }
+function toggleTheme() {
+  const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  setTheme(t);
+  localStorage.setItem('rn-theme', t);
 }
+
+/* ---------- note list (grouped by month / year, plus bin) ---------- */
+function activeNotes() { return notes.filter(n => !n.deletedAt).sort((a, b) => b.updated - a.updated); }
+function binNotes() { return notes.filter(n => n.deletedAt).sort((a, b) => b.deletedAt - a.deletedAt); }
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+function groupLabel(ts) {
+  const d = new Date(ts), nd = new Date();
+  if (d.getFullYear() === nd.getFullYear()) return MONTHS[d.getMonth()];
+  return String(d.getFullYear());
+}
+function stripHtml(html) { const d = document.createElement('div'); d.innerHTML = html || ''; return d.textContent || ''; }
 function noteText(n) {
   let t = n.title + ' ';
+  if (n.lock && !unlockedIds.has(n.id)) return t; // don't search locked content
   for (const b of n.blocks) {
     if (b.type === 'text') t += stripHtml(b.html) + ' ';
     else for (const row of b.rows) for (const cell of row) for (const it of cell) t += it.text + ' ';
@@ -842,18 +803,76 @@ function noteText(n) {
   return t;
 }
 function preview(n) {
+  if (n.lock && !unlockedIds.has(n.id)) return 'locked';
   for (const b of n.blocks) {
     if (b.type === 'text') {
       const t = stripHtml(b.html).trim();
       if (t) return t.slice(0, 40);
       if ((b.html || '').includes('<img')) return '[image]';
+      if ((b.html || '').includes('<video')) return '[video]';
+      if ((b.html || '').includes('file-att')) return '[attachment]';
     }
     if (b.type === 'table') return '[table]';
   }
   return 'empty';
 }
+function noteLi(n) {
+  const li = document.createElement('li');
+  if (n.id === currentId) li.classList.add('active');
+  const d = new Date(n.updated);
+  li.innerHTML = '<span class="nl-title"></span>' +
+    (n.lock ? ' <span class="lock-flag">&#128274;</span>' : '') +
+    (n.pinned ? ' <span class="pin-flag">&#9733;</span>' : '') +
+    '<div class="nl-meta"></div>';
+  li.querySelector('.nl-title').textContent = n.title || 'untitled note';
+  li.querySelector('.nl-meta').textContent = d.toLocaleDateString() + ' ' +
+    d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' · ' + preview(n);
+  li.onclick = () => openNote(n.id);
+  return li;
+}
+function renderList() {
+  const q = $('search').value.trim().toLowerCase();
+  const pinnedUl = $('list-pinned'), notesUl = $('list-notes'), delUl = $('list-deleted');
+  pinnedUl.innerHTML = ''; notesUl.innerHTML = ''; delUl.innerHTML = '';
+  let pc = 0, nc = 0, lastGroup = null;
 
-/* ---------- open / create / delete ---------- */
+  for (const n of activeNotes()) {
+    if (q && !noteText(n).toLowerCase().includes(q)) continue;
+    if (n.pinned) { pinnedUl.appendChild(noteLi(n)); pc++; continue; }
+    const g = groupLabel(n.updated);
+    if (g !== lastGroup) {
+      const gh = document.createElement('li');
+      gh.className = 'nl-group';
+      gh.textContent = g;
+      notesUl.appendChild(gh);
+      lastGroup = g;
+    }
+    notesUl.appendChild(noteLi(n)); nc++;
+  }
+
+  let bc = 0;
+  for (const n of binNotes()) {
+    if (q && !(n.title || 'untitled note').toLowerCase().includes(q)) continue;
+    const li = document.createElement('li');
+    const daysLeft = Math.max(0, BIN_DAYS - Math.floor((now() - n.deletedAt) / 86400000));
+    li.innerHTML = '<span class="nl-title" style="text-decoration:none;color:var(--text-soft);"></span>' +
+      '<div class="nl-meta"></div>' +
+      '<div class="bin-links"><a class="restore">restore</a><a class="purge">delete forever</a></div>';
+    li.querySelector('.nl-title').textContent = n.title || 'untitled note';
+    li.querySelector('.nl-meta').textContent = 'deleted · gone in ' + daysLeft + ' days';
+    li.style.cursor = 'default';
+    li.querySelector('.restore').onclick = (e) => { e.stopPropagation(); restoreNote(n.id); };
+    li.querySelector('.purge').onclick = (e) => { e.stopPropagation(); purgeNote(n.id); };
+    delUl.appendChild(li); bc++;
+  }
+
+  $('empty-pinned').classList.toggle('hidden', pc > 0);
+  $('empty-notes').classList.toggle('hidden', nc > 0);
+  $('empty-deleted').classList.toggle('hidden', bc > 0);
+  $('note-count').textContent = '(' + activeNotes().length + ')';
+}
+
+/* ---------- open / create / trash / restore / duplicate ---------- */
 function currentNote() { return notes.find(n => n.id === currentId); }
 function showNoNote() {
   currentId = null;
@@ -862,14 +881,16 @@ function showNoNote() {
 }
 function openNote(id) {
   currentId = id;
-  selectedTableBi = null;
+  clearCellSel();
   const n = currentNote();
-  if (!n) { showNoNote(); return; }
+  if (!n || n.deletedAt) { showNoNote(); return; }
   $('editor-panel').classList.remove('hidden');
   $('no-note-msg').classList.add('hidden');
   $('note-title').value = n.title;
   $('note-date').textContent = 'last edited ' + new Date(n.updated).toLocaleString();
   $('pin-btn').style.background = n.pinned ? 'var(--green-bg2)' : '';
+  $('lock-btn').style.background = n.lock ? 'var(--green-bg2)' : '';
+  $('note-title').readOnly = !!(n.lock && !unlockedIds.has(n.id));
   initHistory(n);
   renderBlocks();
   renderList();
@@ -882,13 +903,48 @@ function newNote() {
   openNote(n.id);
   $('note-title').focus();
 }
-function deleteNote() {
-  const n = currentNote(); if (!n) return;
-  notes = notes.filter(x => x.id !== n.id);
-  delete histories[n.id];
+function trashCurrent() { const n = currentNote(); if (n) trashNote(n.id); }
+function trashNote(id) {
+  const n = notes.find(x => x.id === id); if (!n) return;
+  n.deletedAt = now();
+  binUndo.push(id);
   scheduleSave();
-  const next = sortedNotes()[0];
-  if (next) openNote(next.id); else { showNoNote(); renderList(); }
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  if (currentId === id) {
+    const next = activeNotes()[0];
+    if (next) openNote(next.id); else { showNoNote(); renderList(); }
+  } else renderList();
+}
+function restoreNote(id) {
+  const n = notes.find(x => x.id === id); if (!n) return;
+  delete n.deletedAt;
+  scheduleSave();
+  openNote(id);
+}
+function purgeNote(id) {
+  notes = notes.filter(x => x.id !== id);
+  delete histories[id];
+  scheduleSave();
+  renderList();
+}
+function restoreLastTrashed() {
+  while (binUndo.length) {
+    const id = binUndo.pop();
+    const n = notes.find(x => x.id === id && x.deletedAt);
+    if (n) { restoreNote(id); return true; }
+  }
+  return false;
+}
+function duplicateNote(srcNote) {
+  const src = srcNote || currentNote(); if (!src) return;
+  const copy = JSON.parse(JSON.stringify({ title: src.title, pinned: false, blocks: src.blocks, lock: src.lock }));
+  copy.id = uid();
+  copy.title = (copy.title || 'untitled note') + ' copy';
+  copy.updated = now();
+  notes.push(copy);
+  if (src.lock && unlockedIds.has(src.id)) unlockedIds.add(copy.id);
+  scheduleSave();
+  openNote(copy.id);
 }
 function togglePin() {
   const n = currentNote(); if (!n) return;
@@ -907,29 +963,100 @@ function onTitleInput() {
   n.title = $('note-title').value;
   touch(n); renderList();
 }
+function focusFirstText() {
+  const n = currentNote(); if (!n) return;
+  if (isLocked(n)) return;
+  if (!n.blocks.length || n.blocks[0].type !== 'text' && !n.blocks.some(b => b.type === 'text')) {
+    n.blocks.unshift({ type: 'text', html: '' });
+    touch(n); renderBlocks();
+  }
+  const ed = $('blocks').querySelector('.textblock');
+  if (ed) placeCaretAtEnd(ed);
+}
 
-/* ---------- formatting ---------- */
-function toggleFmtMenu(e) {
+/* ---------- note locking ---------- */
+function isLocked(n) { return !!(n.lock && !unlockedIds.has(n.id)); }
+function buildLockMenu() {
+  const n = currentNote(); if (!n) return;
+  const m = $('lock-menu');
+  if (!n.lock) {
+    m.innerHTML =
+      '<div style="font-weight:bold; padding:2px 0;">lock this note</div>' +
+      '<input type="password" id="lk-pw" placeholder="password">' +
+      '<input type="password" id="lk-pw2" placeholder="confirm password">' +
+      '<div class="dd-err hidden" id="lk-err"></div>' +
+      '<div class="fmt-item" style="color:var(--green-dark); font-weight:bold;" onclick="setLock()">&#128274; lock note</div>';
+  } else if (unlockedIds.has(n.id)) {
+    m.innerHTML =
+      '<div class="fmt-item" onclick="lockNow()">&#128274; lock now</div>' +
+      '<div class="fmt-item" onclick="removeLock()">remove lock</div>';
+  } else {
+    m.innerHTML = '<div style="padding:4px;">this note is locked. unlock it below first.</div>';
+  }
+}
+async function setLock() {
+  const n = currentNote(); if (!n) return;
+  const pw = $('lk-pw').value, pw2 = $('lk-pw2').value;
+  const err = $('lk-err');
+  const fail = (m) => { err.textContent = m; err.classList.remove('hidden'); };
+  if (pw.length < 4) { fail('password must be at least 4 characters.'); return; }
+  if (pw !== pw2) { fail('passwords do not match.'); return; }
+  const salt = crypto.getRandomValues(new Uint32Array(4)).join('-');
+  n.lock = { salt, hash: await sha256(salt + pw) };
+  unlockedIds.add(n.id);
+  $('lock-btn').style.background = 'var(--green-bg2)';
+  touch(n); renderList();
+  $('lock-menu').classList.add('hidden');
+}
+function lockNow() {
+  const n = currentNote(); if (!n) return;
+  unlockedIds.delete(n.id);
+  $('lock-menu').classList.add('hidden');
+  openNote(n.id);
+}
+function removeLock() {
+  const n = currentNote(); if (!n) return;
+  delete n.lock;
+  $('lock-btn').style.background = '';
+  touch(n); renderList();
+  $('lock-menu').classList.add('hidden');
+}
+async function tryUnlock() {
+  const n = currentNote(); if (!n || !n.lock) return;
+  const pw = $('unlock-pw').value;
+  const hash = await sha256(n.lock.salt + pw);
+  if (hash === n.lock.hash) {
+    unlockedIds.add(n.id);
+    openNote(n.id);
+  } else {
+    $('unlock-err').textContent = 'incorrect password.';
+    $('unlock-err').classList.remove('hidden');
+  }
+}
+
+/* ---------- menus ---------- */
+function toggleMenu(e, id) {
   e.stopPropagation();
-  $('fmt-menu').classList.toggle('hidden');
+  for (const mid of ['fmt-menu', 'attach-menu', 'lock-menu']) {
+    if (mid !== id) $(mid).classList.add('hidden');
+  }
+  $(id).classList.toggle('hidden');
 }
 document.addEventListener('click', (e) => {
-  if (!e.target.closest('#fmt-menu') && !e.target.closest('.tbtn')) {
-    $('fmt-menu').classList.add('hidden');
+  if (!e.target.closest('.dropdown') && !e.target.closest('.tbtn')) {
+    ['fmt-menu', 'attach-menu', 'lock-menu'].forEach(id => $(id).classList.add('hidden'));
   }
+  if (!e.target.closest('#tbl-ctxmenu')) $('tbl-ctxmenu').classList.add('hidden');
 });
+
+/* ---------- formatting ---------- */
 function fmt(e, cmd, arg) {
-  e.preventDefault(); // keep selection in the editable
+  e.preventDefault();
   if (!lastEditor || !document.body.contains(lastEditor.el)) return;
   lastEditor.el.focus();
   if (cmd === 'dashedList') {
     document.execCommand('insertUnorderedList');
-    const sel = window.getSelection();
-    if (sel.anchorNode) {
-      let node = sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement;
-      const ul = node && node.closest('ul');
-      if (ul) ul.classList.add('dashed');
-    }
+    markDashed();
   } else if (cmd === 'formatBlock') {
     document.execCommand('formatBlock', false, arg.toUpperCase());
   } else {
@@ -937,19 +1064,36 @@ function fmt(e, cmd, arg) {
   }
   lastEditor.block.html = lastEditor.el.innerHTML;
   touch(currentNote());
-  if (cmd !== 'bold' && cmd !== 'italic' && cmd !== 'underline' && cmd !== 'strikeThrough') {
-    $('fmt-menu').classList.add('hidden');
+  if (!['bold','italic','underline','strikeThrough'].includes(cmd)) $('fmt-menu').classList.add('hidden');
+}
+function markDashed() {
+  const sel = window.getSelection();
+  if (sel.anchorNode) {
+    let node = sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement;
+    const ul = node && node.closest('ul');
+    if (ul) ul.classList.add('dashed');
   }
 }
+function toggleChecklist(e) {
+  e.preventDefault();
+  if (!lastCellCtx) return;
+  const { item, bi } = lastCellCtx;
+  item.kind = item.kind === 'check' ? 'text' : 'check';
+  if (item.kind === 'text') item.done = false;
+  touch(currentNote());
+  renderBlocks();
+  // refocus the same item
+  setTimeout(() => {
+    const el = document.querySelector('.ci-text[data-focus-me="1"]');
+    if (el) { el.removeAttribute('data-focus-me'); placeCaretAtEnd(el); }
+  }, 0);
+  pendingFocusItem = item;
+}
+let pendingFocusItem = null;
 
 /* ---------- blocks ---------- */
-function addTextBlock() {
-  const n = currentNote(); if (!n) return;
-  n.blocks.push({ type: 'text', html: '' });
-  touch(n); renderBlocks();
-}
 function addTableBlock() {
-  const n = currentNote(); if (!n) return;
+  const n = currentNote(); if (!n || isLocked(n)) return;
   const mk = () => [];
   const rows = [ [mk(),mk(),mk()], [mk(),mk(),mk()], [mk(),mk(),mk()] ];
   n.blocks.push({ type: 'table', rows });
@@ -960,39 +1104,34 @@ function removeBlock(bi) {
   const n = currentNote(); if (!n) return;
   n.blocks.splice(bi, 1);
   if (n.blocks.length === 0) n.blocks.push({ type: 'text', html: '' });
-  selectedTableBi = null;
+  clearCellSel();
   touch(n); renderBlocks();
 }
-
 function renderBlocks() {
   const n = currentNote(); if (!n) return;
   const host = $('blocks');
   host.innerHTML = '';
+
+  if (isLocked(n)) {
+    host.innerHTML =
+      '<div class="locked-box">' +
+      '<div style="font-size:30px;">&#128274;</div>' +
+      '<div style="margin:6px 0; color:var(--text-soft);">this note is locked</div>' +
+      '<input type="password" id="unlock-pw" placeholder="password" onkeydown="if(event.key===\'Enter\')tryUnlock()">' +
+      '<div class="dd-err hidden" id="unlock-err" style="text-align:center;"></div>' +
+      '<div><button class="g-btn" onclick="tryUnlock()">unlock</button></div>' +
+      '</div>';
+    return;
+  }
+
   n.blocks.forEach((b, bi) => {
     const div = document.createElement('div');
     div.className = 'block';
-    if (b.type === 'table' && bi === selectedTableBi) div.classList.add('tbl-selected');
-
-    if (b.type === 'table') {
-      const tools = document.createElement('div');
-      tools.className = 'block-tools';
-      tools.innerHTML =
-        '<a class="action" onclick="tableAddRow(' + bi + ')">+ row</a> ' +
-        '<a class="action" onclick="tableAddCol(' + bi + ')">+ col</a> ' +
-        '<a class="action" onclick="removeBlock(' + bi + ')" style="color:#b03030;">remove table</a>';
-      div.appendChild(tools);
-      div.appendChild(renderTableBlock(b, bi));
-      const hint = document.createElement('div');
-      hint.className = 'tbl-hint';
-      hint.textContent = 'table selected · press delete/backspace to remove · esc to deselect';
-      div.appendChild(hint);
-    } else {
-      div.appendChild(renderTextBlock(b, bi));
-    }
+    if (b.type === 'table') div.appendChild(renderTableBlock(b, bi));
+    else div.appendChild(renderTextBlock(b, bi));
     host.appendChild(div);
   });
 
-  // clickable space below the last block, so you can always type under a table
   const tail = document.createElement('div');
   tail.style.minHeight = '80px';
   tail.style.cursor = 'text';
@@ -1007,7 +1146,6 @@ function renderBlocks() {
   };
   host.appendChild(tail);
 }
-
 function placeCaretAtEnd(el) {
   el.focus();
   const r = document.createRange();
@@ -1025,58 +1163,135 @@ function renderTextBlock(b, bi) {
   ed.setAttribute('data-ph', 'type here...');
   ed.innerHTML = b.html || '';
 
-  ed.onfocus = () => { lastEditor = { el: ed, block: b }; deselectTable(); };
-  ed.oninput = () => { b.html = ed.innerHTML; touch(currentNote()); };
+  ed.onfocus = () => { lastEditor = { el: ed, block: b }; lastCellCtx = null; clearCellSel(); };
+  ed.oninput = (e) => {
+    b.html = ed.innerHTML;
+    autoDashList(ed, b);
+    touch(currentNote());
+  };
   ed.onkeydown = (e) => {
-    // delete an empty text block with backspace (if it's not the only block)
-    if (e.key === 'Backspace' && ed.textContent === '' && !ed.querySelector('img') &&
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      document.execCommand('insertHTML', false, '&nbsp;&nbsp;&nbsp;&nbsp;');
+      b.html = ed.innerHTML;
+      touch(currentNote());
+      return;
+    }
+    if (e.key === 'Backspace' && ed.textContent === '' && !ed.querySelector('img,video,a') &&
         currentNote().blocks.length > 1) {
       e.preventDefault();
       removeBlock(bi);
       const eds = $('blocks').querySelectorAll('.textblock');
-      if (eds.length) placeCaretAtEnd(eds[Math.min(bi, eds.length - 1) - (bi > 0 ? 1 : 0)] || eds[eds.length - 1]);
+      if (eds.length) placeCaretAtEnd(eds[Math.max(0, Math.min(bi - 1, eds.length - 1))]);
     }
   };
   ed.onpaste = (e) => handlePaste(e, ed, b);
   return ed;
 }
 
-/* image paste: downscale and insert inline */
+/* typing "- " at the start of a line turns it into a dashed list */
+function autoDashList(ed, b) {
+  const sel = window.getSelection();
+  if (!sel.anchorNode || sel.anchorNode.nodeType !== 3) return;
+  const node = sel.anchorNode;
+  if (node.textContent === '- ' && sel.anchorOffset === 2) {
+    const parent = node.parentElement;
+    if (parent && parent.closest('ul,ol')) return;
+    node.textContent = '';
+    document.execCommand('insertUnorderedList');
+    markDashed();
+    b.html = ed.innerHTML;
+  }
+}
+
+/* paste: images inline, otherwise plain text */
 function handlePaste(e, ed, b) {
   const items = (e.clipboardData || {}).items || [];
   for (const it of items) {
     if (it.type && it.type.startsWith('image/')) {
       e.preventDefault();
-      const file = it.getAsFile();
-      const img = new Image();
-      const url = URL.createObjectURL(file);
-      img.onload = () => {
-        const MAX = 700;
-        let w = img.width, h = img.height;
-        if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
-        const c = document.createElement('canvas');
-        c.width = w; c.height = h;
-        c.getContext('2d').drawImage(img, 0, 0, w, h);
-        const data = c.toDataURL('image/jpeg', 0.75);
-        URL.revokeObjectURL(url);
-        ed.focus();
-        document.execCommand('insertImage', false, data);
-        b.html = ed.innerHTML;
-        touch(currentNote());
-      };
-      img.src = url;
+      insertImageFile(it.getAsFile(), ed, b);
       return;
     }
   }
-  // plain text paste, strip outside formatting
   const text = (e.clipboardData || window.clipboardData).getData('text/plain');
   if (text !== undefined) {
     e.preventDefault();
     document.execCommand('insertText', false, text);
   }
 }
+function insertImageFile(file, ed, b) {
+  const img = new Image();
+  const url = URL.createObjectURL(file);
+  img.onload = () => {
+    const MAX = 700;
+    let w = img.width, h = img.height;
+    if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    c.getContext('2d').drawImage(img, 0, 0, w, h);
+    const data = c.toDataURL('image/jpeg', 0.75);
+    URL.revokeObjectURL(url);
+    ed.focus();
+    document.execCommand('insertImage', false, data);
+    b.html = ed.innerHTML;
+    touch(currentNote());
+  };
+  img.src = url;
+}
+
+/* ---------- attachments ---------- */
+function pickFile(inputId) {
+  ['fmt-menu','attach-menu','lock-menu'].forEach(id => $(id).classList.add('hidden'));
+  $(inputId).click();
+}
+function targetEditor() {
+  // last focused editor, or the last text block (created if needed)
+  if (lastEditor && document.body.contains(lastEditor.el)) return lastEditor;
+  const n = currentNote(); if (!n || isLocked(n)) return null;
+  const last = n.blocks[n.blocks.length - 1];
+  if (!last || last.type !== 'text') { n.blocks.push({ type: 'text', html: '' }); renderBlocks(); }
+  const eds = $('blocks').querySelectorAll('.textblock');
+  const ed = eds[eds.length - 1];
+  const blocksOfText = n.blocks.filter(b => b.type === 'text');
+  return { el: ed, block: blocksOfText[blocksOfText.length - 1] };
+}
+function handleAttach(input) {
+  const file = input.files && input.files[0];
+  input.value = '';
+  if (!file) return;
+  const t = targetEditor(); if (!t) return;
+
+  if (file.type.startsWith('image/')) { insertImageFile(file, t.el, t.block); return; }
+
+  if (file.size > 8 * 1024 * 1024) {
+    $('note-date').textContent = 'file too large: max 8 MB per attachment';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const data = reader.result;
+    placeCaretAtEnd(t.el);
+    if (file.type.startsWith('video/')) {
+      document.execCommand('insertHTML', false,
+        '<video controls src="' + data + '"></video><br>');
+    } else {
+      const safeName = file.name.replace(/[<>"&]/g, '');
+      document.execCommand('insertHTML', false,
+        '<a class="file-att" download="' + safeName + '" href="' + data + '">&#128206; ' + safeName + '</a><br>');
+    }
+    t.block.html = t.el.innerHTML;
+    touch(currentNote());
+  };
+  reader.readAsDataURL(file);
+}
 
 /* ---------- tables ---------- */
+let ctxBi = null;
+let cellSel = null;   // { bi, r1, c1, r2, c2 }
+let dragStart = null; // { bi, ri, ci }
+let dragMoved = false;
+
 function tableAddRow(bi) {
   const b = currentNote().blocks[bi];
   b.rows.push(b.rows[0].map(() => []));
@@ -1088,43 +1303,85 @@ function tableAddCol(bi) {
   b.rows.forEach(r => r.push([]));
   touch(currentNote()); renderBlocks();
 }
-function deselectTable() {
-  if (selectedTableBi === null) return;
-  selectedTableBi = null;
-  document.querySelectorAll('.block.tbl-selected').forEach(el => el.classList.remove('tbl-selected'));
+function ctxAddRow() { if (ctxBi !== null) tableAddRow(ctxBi); $('tbl-ctxmenu').classList.add('hidden'); }
+function ctxAddCol() { if (ctxBi !== null) tableAddCol(ctxBi); $('tbl-ctxmenu').classList.add('hidden'); }
+function ctxDeleteTable() { if (ctxBi !== null) removeBlock(ctxBi); $('tbl-ctxmenu').classList.add('hidden'); }
+
+function clearCellSel() {
+  cellSel = null;
+  document.querySelectorAll('.cell-sel').forEach(el => el.classList.remove('cell-sel'));
 }
-function selectTable(bi) {
-  deselectTable();
-  selectedTableBi = bi;
-  const blocks = $('blocks').children;
-  if (blocks[bi]) blocks[bi].classList.add('tbl-selected');
-  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+function applyCellSel() {
+  document.querySelectorAll('.cell-sel').forEach(el => el.classList.remove('cell-sel'));
+  if (!cellSel) return;
+  const { bi, r1, c1, r2, c2 } = cellSel;
+  const [ra, rb] = [Math.min(r1, r2), Math.max(r1, r2)];
+  const [ca, cb] = [Math.min(c1, c2), Math.max(c1, c2)];
+  document.querySelectorAll('[data-cell][data-bi="' + bi + '"]').forEach(td => {
+    const ri = +td.dataset.ri, ci = +td.dataset.ci;
+    if (ri >= ra && ri <= rb && ci >= ca && ci <= cb) td.classList.add('cell-sel');
+  });
+}
+function deleteCellSelContents() {
+  if (!cellSel) return;
+  const n = currentNote(); if (!n) return;
+  const b = n.blocks[cellSel.bi]; if (!b || b.type !== 'table') return;
+  const [ra, rb] = [Math.min(cellSel.r1, cellSel.r2), Math.max(cellSel.r1, cellSel.r2)];
+  const [ca, cb] = [Math.min(cellSel.c1, cellSel.c2), Math.max(cellSel.c1, cellSel.c2)];
+  for (let r = ra; r <= rb; r++) for (let c = ca; c <= cb; c++) b.rows[r][c] = [];
+  touch(n); renderBlocks();
+  cellSel = { ...cellSel };
+  setTimeout(applyCellSel, 0);
 }
 
 function renderTableBlock(b, bi) {
   const scroll = document.createElement('div');
   scroll.className = 'table-scroll';
+  scroll.oncontextmenu = (e) => {
+    e.preventDefault();
+    ctxBi = bi;
+    const m = $('tbl-ctxmenu');
+    m.style.left = Math.min(e.clientX, window.innerWidth - 160) + 'px';
+    m.style.top = e.clientY + 'px';
+    m.classList.remove('hidden');
+  };
   const table = document.createElement('table');
   table.className = 'ntable';
 
   b.rows.forEach((row, ri) => {
     const tr = document.createElement('tr');
-    row.forEach((cell) => {
+    row.forEach((cell, ci) => {
       const td = document.createElement(ri === 0 ? 'th' : 'td');
-      cell.forEach((item, ii) => td.appendChild(renderCellItem(item, cell)));
-      const add = document.createElement('div');
-      add.className = 'cell-add';
-      const aText = document.createElement('a');
-      aText.textContent = '+ text';
-      aText.onclick = (e) => { e.stopPropagation(); cell.push({ kind: 'text', text: '', done: false }); touch(currentNote()); renderBlocks(); focusNewItem(); };
-      const aCheck = document.createElement('a');
-      aCheck.textContent = '+ \u2611';
-      aCheck.title = 'add checklist item';
-      aCheck.onclick = (e) => { e.stopPropagation(); cell.push({ kind: 'check', text: '', done: false }); touch(currentNote()); renderBlocks(); focusNewItem(); };
-      add.appendChild(aText); add.appendChild(aCheck);
-      td.appendChild(add);
-      // clicking empty cell space selects the whole table
-      td.onclick = (e) => { if (e.target === td) selectTable(bi); };
+      td.dataset.cell = '1'; td.dataset.bi = bi; td.dataset.ri = ri; td.dataset.ci = ci;
+      cell.forEach((item) => td.appendChild(renderCellItem(b, bi, ri, ci, item, cell)));
+
+      td.onmousedown = (e) => {
+        dragStart = { bi, ri, ci };
+        dragMoved = false;
+      };
+      td.onmouseenter = (e) => {
+        if (dragStart && e.buttons === 1 && dragStart.bi === bi &&
+            (dragStart.ri !== ri || dragStart.ci !== ci || dragMoved)) {
+          dragMoved = true;
+          cellSel = { bi, r1: dragStart.ri, c1: dragStart.ci, r2: ri, c2: ci };
+          window.getSelection().removeAllRanges();
+          if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+          applyCellSel();
+        }
+      };
+      td.onclick = (e) => {
+        if (dragMoved) { dragMoved = false; return; }
+        if (e.target !== td) return;
+        clearCellSel();
+        // click on empty cell area -> start typing (text mode by default)
+        if (cell.length === 0) {
+          cell.push({ kind: 'text', text: '', done: false });
+          touch(currentNote()); renderBlocks(); focusNewItem();
+        } else {
+          const texts = td.querySelectorAll('.ci-text');
+          if (texts.length) placeCaretAtEnd(texts[texts.length - 1]);
+        }
+      };
       tr.appendChild(td);
     });
     table.appendChild(tr);
@@ -1134,14 +1391,32 @@ function renderTableBlock(b, bi) {
 }
 
 let focusPending = false;
-function focusNewItem() { focusPending = true; setTimeout(() => {
-  if (!focusPending) return;
-  focusPending = false;
-  const els = document.querySelectorAll('.ci-text');
-  for (const el of els) if (!el.textContent.trim()) { el.focus(); return; }
-}, 0); }
+function focusNewItem() {
+  focusPending = true;
+  setTimeout(() => {
+    if (!focusPending) return;
+    focusPending = false;
+    const els = document.querySelectorAll('.ci-text');
+    for (const el of els) if (!el.textContent.trim()) { el.focus(); return; }
+  }, 0);
+}
+function focusCell(bi, ri, ci) {
+  const n = currentNote(); if (!n) return;
+  const b = n.blocks[bi]; if (!b) return;
+  if (ri >= b.rows.length) { tableAddRow(bi); }
+  setTimeout(() => {
+    const td = document.querySelector('[data-cell][data-bi="' + bi + '"][data-ri="' + ri + '"][data-ci="' + ci + '"]');
+    if (!td) return;
+    const texts = td.querySelectorAll('.ci-text');
+    if (texts.length) { placeCaretAtEnd(texts[texts.length - 1]); return; }
+    // empty cell: create a text item
+    const cell = b.rows[ri][ci];
+    cell.push({ kind: 'text', text: '', done: false });
+    touch(n); renderBlocks(); focusNewItem();
+  }, 0);
+}
 
-function renderCellItem(item, cell) {
+function renderCellItem(block, bi, ri, ci, item, cell) {
   const wrap = document.createElement('div');
   wrap.className = 'cell-item' + (item.kind === 'check' && item.done ? ' done' : '');
 
@@ -1162,9 +1437,22 @@ function renderCellItem(item, cell) {
   txt.contentEditable = 'true';
   txt.spellcheck = false;
   txt.textContent = item.text;
-  txt.onfocus = () => { deselectTable(); lastEditor = null; };
+  if (pendingFocusItem === item) { txt.setAttribute('data-focus-me', '1'); pendingFocusItem = null; }
+  txt.onfocus = () => { clearCellSel(); lastEditor = null; lastCellCtx = { item, cell, bi }; };
   txt.oninput = () => { item.text = txt.textContent; touch(currentNote()); };
+  txt.onmousedown = (e) => e.stopPropagation();
   txt.onkeydown = (e) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const cols = block.rows[0].length;
+      let nr = ri, nc = ci + (e.shiftKey ? -1 : 1);
+      if (nc >= cols) { nc = 0; nr = ri + 1; }
+      if (nc < 0) { nc = cols - 1; nr = ri - 1; }
+      if (nr < 0) return;
+      if (nr >= block.rows.length) tableAddRow(bi);
+      focusCell(bi, nr, nc);
+      return;
+    }
     if (e.key === 'Enter') {
       e.preventDefault();
       const idx = cell.indexOf(item);
@@ -1193,25 +1481,44 @@ function renderCellItem(item, cell) {
   return wrap;
 }
 
+document.addEventListener('mouseup', () => { dragStart = null; });
+document.addEventListener('mousedown', (e) => {
+  if (cellSel && !e.target.closest('[data-cell]') && !e.target.closest('#tbl-ctxmenu')) clearCellSel();
+});
+
 /* ---------- global keys ---------- */
+function isEditing() {
+  const ae = document.activeElement;
+  return !!(ae && (ae.isContentEditable || /INPUT|TEXTAREA/.test(ae.tagName)));
+}
 document.addEventListener('keydown', (e) => {
   const mod = e.ctrlKey || e.metaKey;
-  if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
+
+  if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+    if (!isEditing() && binUndo.length && restoreLastTrashed()) { e.preventDefault(); return; }
+    e.preventDefault(); undo(); return;
+  }
   if (mod && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) {
     e.preventDefault(); redo(); return;
   }
-  if (selectedTableBi !== null) {
-    const editing = document.activeElement &&
-      (document.activeElement.isContentEditable || /INPUT|TEXTAREA/.test(document.activeElement.tagName));
-    if ((e.key === 'Delete' || e.key === 'Backspace') && !editing) {
-      e.preventDefault();
-      removeBlock(selectedTableBi);
+
+  if (!isEditing()) {
+    // copy / paste whole notes when not typing
+    if (mod && e.key.toLowerCase() === 'c' && currentNote() && !window.getSelection().toString()) {
+      copiedNote = JSON.parse(JSON.stringify(currentNote()));
+      return;
     }
-    if (e.key === 'Escape') deselectTable();
+    if (mod && e.key.toLowerCase() === 'v' && copiedNote) {
+      e.preventDefault();
+      duplicateNote(copiedNote);
+      return;
+    }
+    if ((e.key === 'Delete' || e.key === 'Backspace')) {
+      if (cellSel) { e.preventDefault(); deleteCellSelContents(); return; }
+      if (currentNote()) { e.preventDefault(); trashCurrent(); return; }
+    }
   }
-});
-document.addEventListener('mousedown', (e) => {
-  if (selectedTableBi !== null && !e.target.closest('.block.tbl-selected')) deselectTable();
+  if (e.key === 'Escape') { clearCellSel(); $('tbl-ctxmenu').classList.add('hidden'); }
 });
 
 init();
