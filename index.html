@@ -326,10 +326,17 @@
 
   .login-wrap { max-width: 400px; margin: 60px auto; text-align: center; padding: 0 14px; }
   .login-box { border: 1px solid var(--border); padding: 24px; background: var(--green-bg); }
-  .login-box input {
+  .login-box input:not([type=checkbox]) {
     width: 100%; font-family: inherit; font-size: 14px; padding: 7px;
     border: 1px solid var(--border); margin: 10px 0;
     background: var(--panel-bg); color: var(--text);
+  }
+  .login-box input[type=checkbox] {
+    width: 14px; height: 14px; flex: 0 0 auto; margin: 0; padding: 0;
+  }
+  .remember-row {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; margin: 0 0 14px 0; cursor: pointer; text-align: left;
   }
   .g-btn {
     display: inline-block; border: 2px solid var(--green); background: var(--panel-bg);
@@ -421,8 +428,8 @@
     </div>
     <a class="forgot-link" id="forgot-link" onclick="forgotPassword()">forgot password?</a>
     <div class="login-error hidden" id="login-error"></div>
-    <label style="display:flex; align-items:center; gap:7px; text-align:left; font-size:12px; margin-bottom:12px; cursor:pointer;">
-      <input type="checkbox" id="remember-me" checked style="accent-color:var(--green); margin:0; flex-shrink:0;">
+    <label class="remember-row">
+      <input type="checkbox" id="remember-me" checked style="accent-color:var(--green);">
       <span>remember me on this device</span>
     </label>
     <button class="g-btn" id="auth-btn" onclick="submitAuth()">Sign in</button>
