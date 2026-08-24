@@ -232,7 +232,6 @@
     font-size: 13px;
     word-break: break-word;
   }
-  .textblock:empty::before { content: attr(data-ph); color: #aaa; }
   .textblock h1 { font-size: 20px; margin: 4px 0; }
   .textblock h2 { font-size: 16px; margin: 4px 0; }
   .textblock h3 { font-size: 14px; margin: 4px 0; }
@@ -251,8 +250,12 @@
     color: var(--text-soft);
   }
   .textblock ul, .textblock ol { margin: 4px 0; padding-left: 26px; }
-  .textblock ul.dashed { list-style: none; padding-left: 20px; }
-  .textblock ul.dashed li::before { content: "\2013\00a0\00a0"; color: #666; }
+  .textblock ul.dashed { list-style: none; padding-left: 14px; }
+  .textblock ul.dashed li::before { content: "\2013\00a0"; color: inherit; }
+  .textblock ul.checklist { list-style: none; padding-left: 14px; }
+  .textblock ul.checklist li { display: flex; align-items: flex-start; gap: 6px; }
+  .textblock ul.checklist li input[type=checkbox] { margin: 3px 0 0 0; accent-color: var(--green); cursor: pointer; }
+  .textblock ul.checklist li.done { text-decoration: line-through; color: var(--text-soft); }
   .textblock img { max-width: 100%; height: auto; display: block; margin: 6px 0; border: 1px solid var(--border); }
   .textblock video { max-width: 100%; display: block; margin: 6px 0; border: 1px solid var(--border); }
   .textblock a.file-att {
@@ -289,9 +292,13 @@
     user-select: text;
   }
   .cell-item.done .ci-text { text-decoration: line-through; color: #999; }
-  .ci-del { color: #ccc; text-decoration: none; font-size: 11px; visibility: hidden; flex-shrink: 0; }
-  .cell-item:hover .ci-del { visibility: visible; }
-  .ci-del:hover { color: #b03030; }
+  .cell-item .ci-dash { flex-shrink: 0; color: inherit; }
+  @keyframes rn-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+  @keyframes rn-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(-14px); } }
+  @keyframes rn-pop { from { opacity: 0; transform: scale(0.985); } to { opacity: 1; transform: none; } }
+  .notelist li.anim-in { animation: rn-in .18s ease-out; }
+  .notelist li.anim-out { animation: rn-out .16s ease-in forwards; }
+  #editor-panel.anim-pop { animation: rn-pop .18s ease-out; }
 
   .ctxmenu {
     position: fixed;
@@ -487,6 +494,7 @@
           <span class="tbtn" title="redo (ctrl+shift+z)" onclick="redo()">&#8631;</span>
         </div>
         <div class="editor-tools">
+          <span class="tbtn" title="new note" onclick="newNote()">&#9998;</span>
           <span class="tbtn" id="lock-btn" title="lock note" onclick="toggleMenu(event,'lock-menu'); buildLockMenu()">&#128274;</span>
           <span class="tbtn" title="duplicate note" onclick="duplicateNote()">&#10697;</span>
           <span class="tbtn" id="pin-btn" title="pin note" onclick="togglePin()">&#128204;</span>
@@ -561,6 +569,7 @@ const unlockedIds = new Set();
 const binUndo = [];         // ids of recently trashed notes, for cmd+z restore
 let copiedNote = null;
 let sidebarFocus = false; // true right after clicking a note in the sidebar
+let animInId = null;      // note id to animate into the list
 const BIN_DAYS = 30;
 
 const $ = id => document.getElementById(id);
@@ -813,6 +822,7 @@ function preview(n) {
 function noteLi(n) {
   const li = document.createElement('li');
   if (n.id === currentId) li.classList.add('active');
+  if (n.id === animInId) { li.classList.add('anim-in'); animInId = null; }
   const d = new Date(n.updated);
   li.innerHTML = '<span class="nl-title"></span>' +
     (n.lock ? ' <span class="lock-flag">&#128274;</span>' : '') +
@@ -894,20 +904,38 @@ function newNote() {
               blocks: [{ type: 'text', html: '' }] };
   notes.push(n);
   scheduleSave();
+  animInId = n.id;
   openNote(n.id);
+  const p = $('editor-panel');
+  p.classList.remove('anim-pop');
+  void p.offsetWidth;
+  p.classList.add('anim-pop');
   $('note-title').focus();
 }
 function trashCurrent() { const n = currentNote(); if (n) trashNote(n.id); }
 function trashNote(id) {
   const n = notes.find(x => x.id === id); if (!n) return;
-  n.deletedAt = now();
-  binUndo.push(id);
-  scheduleSave();
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-  if (currentId === id) {
-    const next = activeNotes()[0];
-    if (next) openNote(next.id); else { showNoNote(); renderList(); }
-  } else renderList();
+
+  const finish = () => {
+    n.deletedAt = now();
+    binUndo.push(id);
+    scheduleSave();
+    if (currentId === id) {
+      const next = activeNotes()[0];
+      if (next) openNote(next.id); else { showNoNote(); renderList(); }
+    } else renderList();
+  };
+
+  // slide the sidebar entry out first, then remove it
+  let animated = false;
+  for (const li of document.querySelectorAll('#list-notes li, #list-pinned li')) {
+    const t = li.querySelector('.nl-title');
+    if (t && t.textContent === (n.title || 'untitled note')) {
+      li.classList.add('anim-out'); animated = true; break;
+    }
+  }
+  if (animated) setTimeout(finish, 160); else finish();
 }
 function restoreNote(id) {
   const n = notes.find(x => x.id === id); if (!n) return;
@@ -943,7 +971,12 @@ function duplicateNote(srcNote) {
   notes.push(copy);
   if (src.lock && unlockedIds.has(src.id)) unlockedIds.add(copy.id);
   scheduleSave();
+  animInId = copy.id;
   openNote(copy.id);
+  const p = $('editor-panel');
+  p.classList.remove('anim-pop');
+  void p.offsetWidth;
+  p.classList.add('anim-pop');
 }
 function togglePin() {
   const n = currentNote(); if (!n) return;
@@ -1082,6 +1115,32 @@ function markDashed() {
 }
 function toggleChecklist(e) {
   e.preventDefault();
+  // in a rich text block: turn the current line into a checklist item
+  if (lastEditor && document.body.contains(lastEditor.el)) {
+    const ed = lastEditor.el, b = lastEditor.block;
+    ed.focus();
+    const sel = window.getSelection();
+    let node = sel.anchorNode;
+    if (node && node.nodeType === 3) node = node.parentElement;
+    const li = node && node.closest && node.closest('li');
+    if (li && li.closest('ul.checklist')) {
+      document.execCommand('insertUnorderedList'); // toggle off
+    } else {
+      document.execCommand('insertUnorderedList');
+      const sel2 = window.getSelection();
+      let n2 = sel2.anchorNode;
+      if (n2 && n2.nodeType === 3) n2 = n2.parentElement;
+      const ul = n2 && n2.closest && n2.closest('ul');
+      if (ul) {
+        ul.classList.remove('dashed');
+        ul.classList.add('checklist');
+        ul.querySelectorAll('li').forEach(addCheckboxTo);
+      }
+    }
+    b.html = ed.innerHTML;
+    touch(currentNote());
+    return;
+  }
   if (!lastCellCtx) return;
   const { item, bi } = lastCellCtx;
   item.kind = item.kind === 'check' ? 'text' : 'check';
@@ -1097,13 +1156,46 @@ function toggleChecklist(e) {
 }
 let pendingFocusItem = null;
 
+function addCheckboxTo(li) {
+  if (li.querySelector('input[type=checkbox]')) return;
+  const cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.setAttribute('contenteditable', 'false');
+  li.insertBefore(cb, li.firstChild);
+}
+/* clicking a checkbox inside a text block */
+document.addEventListener('click', (e) => {
+  const cb = e.target;
+  if (cb && cb.tagName === 'INPUT' && cb.type === 'checkbox' && cb.closest('.textblock')) {
+    const li = cb.closest('li');
+    if (cb.checked) { cb.setAttribute('checked', 'checked'); li && li.classList.add('done'); }
+    else { cb.removeAttribute('checked'); li && li.classList.remove('done'); }
+    const ed = cb.closest('.textblock');
+    const n = currentNote();
+    if (n && ed) {
+      const idx = [...$('blocks').querySelectorAll('.textblock')].indexOf(ed);
+      const textBlocks = n.blocks.filter(b => b.type === 'text');
+      if (textBlocks[idx]) textBlocks[idx].html = ed.innerHTML;
+      touch(n);
+    }
+  }
+});
+
 /* ---------- blocks ---------- */
 function addTableBlock() {
   const n = currentNote(); if (!n || isLocked(n)) return;
   const mk = () => [];
   const rows = [ [mk(),mk(),mk()], [mk(),mk(),mk()], [mk(),mk(),mk()] ];
-  n.blocks.push({ type: 'table', rows });
-  n.blocks.push({ type: 'text', html: '' });
+  const tbl = { type: 'table', rows };
+  // if the cursor is in an empty text block, put the table there instead of at the end
+  let at = -1;
+  if (lastEditor && document.body.contains(lastEditor.el)) {
+    const i = n.blocks.indexOf(lastEditor.block);
+    if (i !== -1 && stripHtml(lastEditor.block.html).trim() === '' &&
+        !/<img|<video|file-att/.test(lastEditor.block.html || '')) at = i;
+  }
+  if (at !== -1) n.blocks.splice(at, 1, tbl, { type: 'text', html: '' });
+  else { n.blocks.push(tbl); n.blocks.push({ type: 'text', html: '' }); }
   touch(n); renderBlocks();
 }
 function removeBlock(bi) {
@@ -1166,7 +1258,6 @@ function renderTextBlock(b, bi) {
   ed.className = 'textblock';
   ed.contentEditable = 'true';
   ed.spellcheck = false;
-  ed.setAttribute('data-ph', 'type here...');
   ed.innerHTML = b.html || '';
 
   ed.onfocus = () => { lastEditor = { el: ed, block: b }; lastCellCtx = null; clearCellSel(); };
@@ -1178,20 +1269,54 @@ function renderTextBlock(b, bi) {
   ed.onkeydown = (e) => {
     if (e.key === 'Enter') {
       if (convertDashLineOnEnter(ed, b)) { e.preventDefault(); return; }
+      setTimeout(() => {
+        ed.querySelectorAll('ul.checklist li').forEach(li => {
+          addCheckboxTo(li);
+          const cb = li.querySelector('input[type=checkbox]');
+          if (cb && !cb.hasAttribute('checked')) { cb.checked = false; li.classList.remove('done'); }
+        });
+        b.html = ed.innerHTML;
+      }, 0);
     }
     if (e.key === 'Tab') {
       e.preventDefault();
-      document.execCommand('insertHTML', false, '&nbsp;&nbsp;&nbsp;&nbsp;');
+      const sel = window.getSelection();
+      let node = sel.anchorNode;
+      if (node && node.nodeType === 3) node = node.parentElement;
+      const li = node && node.closest && node.closest('li');
+      if (li && ed.contains(li)) {
+        const wasDashed = !!li.closest('ul.dashed');
+        const wasCheck = !!li.closest('ul.checklist');
+        document.execCommand(e.shiftKey ? 'outdent' : 'indent');
+        // keep the nested list styled the same as its parent
+        ed.querySelectorAll('ul ul').forEach(u => {
+          if (wasDashed) u.classList.add('dashed');
+          if (wasCheck) u.classList.add('checklist');
+        });
+      } else {
+        document.execCommand('insertHTML', false, '&nbsp;&nbsp;&nbsp;&nbsp;');
+      }
       b.html = ed.innerHTML;
       touch(currentNote());
       return;
     }
-    if (e.key === 'Backspace' && ed.textContent === '' && !ed.querySelector('img,video,a') &&
-        currentNote().blocks.length > 1) {
-      e.preventDefault();
-      removeBlock(bi);
-      const eds = $('blocks').querySelectorAll('.textblock');
-      if (eds.length) placeCaretAtEnd(eds[Math.max(0, Math.min(bi - 1, eds.length - 1))]);
+    if (e.key === 'Backspace' && ed.textContent === '' && !ed.querySelector('img,video,a')) {
+      const n2 = currentNote();
+      const prev = n2.blocks[bi - 1];
+      if (prev && prev.type === 'table') {
+        // directly under a table: backspace removes the table
+        e.preventDefault();
+        removeBlock(bi - 1);
+        const eds = $('blocks').querySelectorAll('.textblock');
+        if (eds.length) placeCaretAtEnd(eds[Math.max(0, Math.min(bi - 1, eds.length - 1))]);
+        return;
+      }
+      if (n2.blocks.length > 1) {
+        e.preventDefault();
+        removeBlock(bi);
+        const eds = $('blocks').querySelectorAll('.textblock');
+        if (eds.length) placeCaretAtEnd(eds[Math.max(0, Math.min(bi - 1, eds.length - 1))]);
+      }
     }
   };
   ed.onpaste = (e) => handlePaste(e, ed, b);
@@ -1417,7 +1542,7 @@ function renderTableBlock(b, bi) {
         // click on empty cell area -> start typing (text mode by default)
         if (cell.length === 0) {
           cell.push({ kind: 'text', text: '', done: false });
-          touch(currentNote()); renderBlocks(); focusNewItem();
+          touch(currentNote()); renderBlocks(); focusCellNow(bi, ri, ci);
         } else {
           const texts = td.querySelectorAll('.ci-text');
           if (texts.length) placeCaretAtEnd(texts[texts.length - 1]);
@@ -1439,6 +1564,34 @@ function focusNewItem() {
     focusPending = false;
     const els = document.querySelectorAll('.ci-text');
     for (const el of els) if (!el.textContent.trim()) { el.focus(); return; }
+  }, 0);
+}
+/* move to the next/previous cell, adding a row at the end if needed */
+function tableTab(bi, ri, ci, back) {
+  const n = currentNote(); if (!n) return;
+  const b = n.blocks[bi]; if (!b || b.type !== 'table') return;
+  const cols = b.rows[0].length;
+  let nr = ri, nc = ci + (back ? -1 : 1);
+  if (nc >= cols) { nc = 0; nr = ri + 1; }
+  if (nc < 0) { nc = cols - 1; nr = ri - 1; }
+  if (nr < 0) return;
+  if (nr >= b.rows.length) {
+    if (back) return;
+    b.rows.push(b.rows[0].map(() => []));
+  }
+  const cell = b.rows[nr][nc];
+  if (cell.length === 0) cell.push({ kind: 'text', text: '', done: false });
+  touch(n);
+  renderBlocks();
+  focusCellNow(bi, nr, nc);
+}
+/* focus the last text item of one specific cell (never a stray empty one elsewhere) */
+function focusCellNow(bi, ri, ci) {
+  setTimeout(() => {
+    const td = document.querySelector('[data-cell][data-bi="' + bi + '"][data-ri="' + ri + '"][data-ci="' + ci + '"]');
+    if (!td) return;
+    const texts = td.querySelectorAll('.ci-text');
+    if (texts.length) placeCaretAtEnd(texts[texts.length - 1]);
   }, 0);
 }
 function focusCell(bi, ri, ci) {
@@ -1473,6 +1626,13 @@ function renderCellItem(block, bi, ri, ci, item, cell) {
     wrap.appendChild(cb);
   }
 
+  if (item.kind === 'dash') {
+    const dash = document.createElement('span');
+    dash.className = 'ci-dash';
+    dash.textContent = '\u2013';
+    wrap.appendChild(dash);
+  }
+
   const txt = document.createElement('div');
   txt.className = 'ci-text';
   txt.contentEditable = 'true';
@@ -1480,25 +1640,29 @@ function renderCellItem(block, bi, ri, ci, item, cell) {
   txt.textContent = item.text;
   if (pendingFocusItem === item) { txt.setAttribute('data-focus-me', '1'); pendingFocusItem = null; }
   txt.onfocus = () => { clearCellSel(); lastEditor = null; lastCellCtx = { item, cell, bi }; };
-  txt.oninput = () => { item.text = txt.textContent; touch(currentNote()); };
+  txt.oninput = () => {
+    // typing "- " at the start of a cell item turns it into a dashed item
+    if (item.kind === 'text' && /^-[\s\u00a0]/.test(txt.textContent)) {
+      item.kind = 'dash';
+      item.text = txt.textContent.replace(/^-[\s\u00a0]+/, '');
+      touch(currentNote()); renderBlocks(); focusCellNow(bi, ri, ci);
+      return;
+    }
+    item.text = txt.textContent;
+    touch(currentNote());
+  };
   txt.onmousedown = (e) => e.stopPropagation();
   txt.onkeydown = (e) => {
     if (e.key === 'Tab') {
       e.preventDefault();
-      const cols = block.rows[0].length;
-      let nr = ri, nc = ci + (e.shiftKey ? -1 : 1);
-      if (nc >= cols) { nc = 0; nr = ri + 1; }
-      if (nc < 0) { nc = cols - 1; nr = ri - 1; }
-      if (nr < 0) return;
-      if (nr >= block.rows.length) tableAddRow(bi);
-      focusCell(bi, nr, nc);
+      tableTab(bi, ri, ci, e.shiftKey);
       return;
     }
     if (e.key === 'Enter') {
       e.preventDefault();
       const idx = cell.indexOf(item);
       cell.splice(idx + 1, 0, { kind: item.kind, text: '', done: false });
-      touch(currentNote()); renderBlocks(); focusNewItem();
+      touch(currentNote()); renderBlocks(); focusCellNow(bi, ri, ci);
     }
     if (e.key === 'Backspace' && txt.textContent === '') {
       e.preventDefault();
@@ -1508,17 +1672,6 @@ function renderCellItem(block, bi, ri, ci, item, cell) {
     }
   };
   wrap.appendChild(txt);
-
-  const del = document.createElement('a');
-  del.className = 'ci-del';
-  del.innerHTML = '&#10005;';
-  del.title = 'remove item';
-  del.onclick = () => {
-    const idx = cell.indexOf(item);
-    cell.splice(idx, 1);
-    touch(currentNote()); renderBlocks();
-  };
-  wrap.appendChild(del);
   return wrap;
 }
 
