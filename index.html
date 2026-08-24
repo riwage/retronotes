@@ -352,6 +352,33 @@
     margin-bottom: 10px;
     text-align: left;
   }
+  .login-error.ok {
+    background: var(--green-bg2);
+    border-color: var(--green);
+    color: var(--green-dark);
+  }
+  .pw-wrap { position: relative; }
+  .pw-wrap input { padding-right: 52px; }
+  .pw-toggle {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    color: var(--green-dark);
+    text-decoration: none;
+    user-select: none;
+  }
+  .pw-toggle:hover { text-decoration: underline; }
+  .forgot-link {
+    display: block;
+    text-align: right;
+    font-size: 11px;
+    margin: -4px 0 10px 0;
+    color: var(--green-dark);
+    text-decoration: none;
+  }
+  .forgot-link:hover { text-decoration: underline; }
   .fineprint { font-size: 11px; color: #888; margin-top: 14px; line-height: 1.5; }
   .hr-dotted { border: none; border-top: 1px dotted var(--border); margin: 12px 0; }
 
@@ -406,16 +433,42 @@
     </div>
     <hr class="hr-dotted">
     <input type="email" id="login-email" placeholder="email address" autocomplete="email">
-    <input type="password" id="login-password" placeholder="password" autocomplete="current-password"
-           onkeydown="if(event.key==='Enter')submitAuth()">
-    <input type="password" id="login-password2" class="hidden" placeholder="confirm password"
-           autocomplete="new-password" onkeydown="if(event.key==='Enter')submitAuth()">
+    <div class="pw-wrap">
+      <input type="password" id="login-password" placeholder="password" autocomplete="current-password"
+             onkeydown="if(event.key==='Enter')submitAuth()">
+      <a class="pw-toggle" onclick="togglePw('login-password', this)">show</a>
+    </div>
+    <div class="pw-wrap hidden" id="pw2-wrap">
+      <input type="password" id="login-password2" placeholder="confirm password"
+             autocomplete="new-password" onkeydown="if(event.key==='Enter')submitAuth()">
+      <a class="pw-toggle" onclick="togglePw('login-password2', this)">show</a>
+    </div>
+    <a class="forgot-link" id="forgot-link" onclick="forgotPassword()">forgot password?</a>
     <div class="login-error hidden" id="login-error"></div>
     <label style="display:block; text-align:left; font-size:12px; margin-bottom:10px; cursor:pointer;">
       <input type="checkbox" id="remember-me" checked style="accent-color:var(--green); vertical-align:middle;">
       remember me on this device
     </label>
     <button class="g-btn" id="auth-btn" onclick="submitAuth()">Sign in</button>
+  </div>
+</div>
+
+<!-- ============ RESET PASSWORD VIEW ============ -->
+<div id="view-reset" class="login-wrap hidden">
+  <div class="login-box">
+    <div style="font-weight:bold; font-size:14px; color:var(--green-dark);">set a new password</div>
+    <hr class="hr-dotted">
+    <div class="pw-wrap">
+      <input type="password" id="reset-password" placeholder="new password" autocomplete="new-password">
+      <a class="pw-toggle" onclick="togglePw('reset-password', this)">show</a>
+    </div>
+    <div class="pw-wrap">
+      <input type="password" id="reset-password2" placeholder="confirm new password"
+             autocomplete="new-password" onkeydown="if(event.key==='Enter')submitNewPassword()">
+      <a class="pw-toggle" onclick="togglePw('reset-password2', this)">show</a>
+    </div>
+    <div class="login-error hidden" id="reset-error"></div>
+    <button class="g-btn" onclick="submitNewPassword()">Save new password</button>
   </div>
 </div>
 
@@ -511,8 +564,8 @@ const uid = () => 'n' + Math.random().toString(36).slice(2, 9);
    1. create a free project at supabase.com
    2. run supabase.sql in the SQL editor
    3. paste your Project URL and anon public key below (Settings -> API) */
-const SUPABASE_URL = 'https://dmucubxjvronhwmymaom.supabase.co/rest/v1/';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtdWN1YnhqdnJvbmh3bXltYW9tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc1MzUyMTMsImV4cCI6MjEwMzExMTIxM30.uUmw1nfxXzIFrwIuGzUnNeI6ANH9NXIQ0-vR6nLs2UQ';
+const SUPABASE_URL = 'PASTE_YOUR_SUPABASE_URL_HERE';
+const SUPABASE_ANON_KEY = 'PASTE_YOUR_SUPABASE_ANON_KEY_HERE';
 
 const CONFIGURED = !SUPABASE_URL.includes('PASTE_YOUR');
 // "remember me" decides where the login token lives:
@@ -622,15 +675,50 @@ function setAuthMode(m) {
   authMode = m;
   $('tab-signin').classList.toggle('active', m === 'signin');
   $('tab-signup').classList.toggle('active', m === 'signup');
-  $('login-password2').classList.toggle('hidden', m !== 'signup');
+  $('pw2-wrap').classList.toggle('hidden', m !== 'signup');
+  $('forgot-link').classList.toggle('hidden', m === 'signup');
   $('login-password').autocomplete = m === 'signup' ? 'new-password' : 'current-password';
   $('auth-btn').textContent = m === 'signup' ? 'Create account' : 'Sign in';
   authError('');
 }
-function authError(msg) {
+function authError(msg, ok) {
   const el = $('login-error');
   el.textContent = msg;
   el.classList.toggle('hidden', !msg);
+  el.classList.toggle('ok', !!ok);
+}
+function togglePw(inputId, link) {
+  const inp = $(inputId);
+  const show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  link.textContent = show ? 'hide' : 'show';
+}
+async function forgotPassword() {
+  if (!CONFIGURED) { authError('app is not configured yet (see README).'); return; }
+  const email = $('login-email').value.trim().toLowerCase();
+  if (!validEmail(email)) { authError('type your email address above first, then click forgot password.'); return; }
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + window.location.pathname
+  });
+  if (error) { authError(error.message.toLowerCase()); return; }
+  authError('password reset email sent to ' + email + '. check your inbox (and spam).', true);
+}
+async function submitNewPassword() {
+  const el = $('reset-error');
+  const err = (msg) => { el.textContent = msg; el.classList.remove('hidden'); };
+  const pw = $('reset-password').value;
+  if (pw.length < 8) { err('password must be at least 8 characters.'); return; }
+  if (pw !== $('reset-password2').value) { err('passwords do not match.'); return; }
+  const { error } = await sb.auth.updateUser({ password: pw });
+  if (error) { err(error.message.toLowerCase()); return; }
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    USER = session.user;
+    $('view-reset').classList.add('hidden');
+    await enterApp();
+  } else {
+    location.reload();
+  }
 }
 function validEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
@@ -671,6 +759,14 @@ async function submitAuth() {
 async function init() {
   loadTheme();
   if (CONFIGURED) {
+    // when the user arrives via the reset email link, show the new-password form
+    sb.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        $('view-login').classList.add('hidden');
+        $('view-app').classList.add('hidden');
+        $('view-reset').classList.remove('hidden');
+      }
+    });
     try {
       const { data: { session } } = await sb.auth.getSession();
       if (session) { USER = session.user; await enterApp(); return; }
