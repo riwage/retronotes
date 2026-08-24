@@ -470,8 +470,10 @@
     </div>
 
     <div class="panel">
-      <div class="panel-h">&#128465; recently deleted</div>
-      <div style="padding:0;">
+      <div class="panel-h" style="cursor:pointer; user-select:none;" onclick="toggleBin()">
+        <span id="bin-toggle">[+]</span> &#128465; recently deleted <span id="bin-count" style="font-weight:normal;color:#7a9a7a;"></span>
+      </div>
+      <div style="padding:0;" id="bin-body" class="hidden">
         <ul class="notelist" id="list-deleted"></ul>
         <div class="empty-msg hidden" id="empty-deleted">bin is empty</div>
       </div>
@@ -824,6 +826,7 @@ function preview(n) {
 function noteLi(n) {
   const li = document.createElement('li');
   if (n.id === currentId) li.classList.add('active');
+  li.dataset.id = n.id;
   if (n.id === animInId) { li.classList.add('anim-in'); animInId = null; }
   const d = new Date(n.updated);
   li.innerHTML = '<span class="nl-title"></span>' +
@@ -857,9 +860,12 @@ function renderList() {
   }
 
   let bc = 0;
-  for (const n of binNotes()) {
+  const binTotal = binNotes().length;
+  $('bin-count').textContent = binTotal ? '(' + binTotal + ')' : '';
+  for (const n of (binOpen ? binNotes() : [])) {
     if (q && !(n.title || 'untitled note').toLowerCase().includes(q)) continue;
     const li = document.createElement('li');
+    li.dataset.id = n.id;
     const daysLeft = Math.max(0, BIN_DAYS - Math.floor((now() - n.deletedAt) / 86400000));
     li.innerHTML = '<span class="nl-title" style="text-decoration:none;color:var(--text-soft);"></span>' +
       '<div class="nl-meta"></div>' +
@@ -874,12 +880,20 @@ function renderList() {
 
   $('empty-pinned').classList.toggle('hidden', pc > 0);
   $('empty-notes').classList.toggle('hidden', nc > 0);
-  $('empty-deleted').classList.toggle('hidden', bc > 0);
+  $('empty-deleted').classList.toggle('hidden', bc > 0 || !binOpen);
   const total = activeNotes().length;
   $('note-count').textContent = q ? '(' + (pc + nc) + ' of ' + total + ')' : '(' + total + ')';
 }
 
 /* ---------- open / create / trash / restore / duplicate ---------- */
+let binOpen = false;
+function toggleBin() {
+  binOpen = !binOpen;
+  $('bin-body').classList.toggle('hidden', !binOpen);
+  $('bin-toggle').textContent = binOpen ? '[-]' : '[+]';
+  renderList();
+}
+
 function currentNote() { return notes.find(n => n.id === currentId); }
 function showNoNote() {
   currentId = null;
@@ -905,6 +919,8 @@ function openNote(id) {
   renderList();
 }
 function newNote() {
+  const prev = currentNote();
+  if (prev && !prev.deletedAt && !prev.title.trim()) prev.title = 'untitled note';
   const n = { id: uid(), title: '', pinned: false, updated: now(),
               blocks: [{ type: 'text', html: '' }] };
   notes.push(n);
@@ -934,14 +950,8 @@ function trashNote(id) {
   };
 
   // slide the sidebar entry out first, then remove it
-  let animated = false;
-  for (const li of document.querySelectorAll('#list-notes li, #list-pinned li')) {
-    const t = li.querySelector('.nl-title');
-    if (t && t.textContent === (n.title || 'untitled note')) {
-      li.classList.add('anim-out'); animated = true; break;
-    }
-  }
-  if (animated) setTimeout(finish, 160); else finish();
+  const li = document.querySelector('#list-notes li[data-id="' + id + '"], #list-pinned li[data-id="' + id + '"]');
+  if (li) { li.classList.add('anim-out'); setTimeout(finish, 160); } else finish();
 }
 function restoreNote(id) {
   const n = notes.find(x => x.id === id); if (!n) return;
@@ -955,14 +965,8 @@ function restoreNote(id) {
     void p.offsetWidth;
     p.classList.add('anim-pop');
   };
-  let animated = false;
-  for (const li of document.querySelectorAll('#list-deleted li')) {
-    const t = li.querySelector('.nl-title');
-    if (t && t.textContent === (n.title || 'untitled note')) {
-      li.classList.add('anim-out'); animated = true; break;
-    }
-  }
-  if (animated) setTimeout(doRestore, 160); else doRestore();
+  const li = document.querySelector('#list-deleted li[data-id="' + id + '"]');
+  if (li) { li.classList.add('anim-out'); setTimeout(doRestore, 160); } else doRestore();
 }
 function purgeNote(id) {
   const n = notes.find(x => x.id === id);
@@ -985,6 +989,7 @@ function restoreLastTrashed() {
 }
 function duplicateNote(srcNote) {
   const src = srcNote || currentNote(); if (!src) return;
+  if (src.lock && !unlockedIds.has(src.id) && !srcNote) return;  // don't duplicate a locked note blind
   const copy = JSON.parse(JSON.stringify({ title: src.title, pinned: false, blocks: src.blocks, lock: src.lock }));
   copy.id = uid();
   copy.title = (copy.title || 'untitled note') + ' copy';
@@ -1173,20 +1178,34 @@ function toggleChecklist(e) {
     return;
   }
   if (!lastCellCtx) return;
-  const { item, bi } = lastCellCtx;
+  const { item, cell, bi, ri, ci } = lastCellCtx;
   item.kind = item.kind === 'check' ? 'text' : 'check';
   if (item.kind === 'text') item.done = false;
   touch(currentNote());
   renderBlocks();
-  // refocus the same item
-  setTimeout(() => {
-    const el = document.querySelector('.ci-text[data-focus-me="1"]');
-    if (el) { el.removeAttribute('data-focus-me'); placeCaretAtEnd(el); }
-  }, 0);
-  pendingFocusItem = item;
+  focusCellItem(bi, ri, ci, cell.indexOf(item));
 }
-let pendingFocusItem = null;
 
+/* make every checklist item have exactly one checkbox, as its first child,
+   with the checked state stored as an attribute so it survives saving */
+function normalizeChecklists(ed) {
+  ed.querySelectorAll('ul.checklist > li').forEach(li => {
+    const boxes = li.querySelectorAll('input[type=checkbox]');
+    let cb = boxes[0];
+    if (!cb) {
+      cb = document.createElement('input');
+      cb.type = 'checkbox';
+    }
+    boxes.forEach(x => { if (x !== cb) x.remove(); });
+    cb.setAttribute('contenteditable', 'false');
+    if (li.firstChild !== cb) li.insertBefore(cb, li.firstChild);
+    const on = cb.hasAttribute('checked');
+    cb.checked = on;
+    li.classList.toggle('done', on);
+  });
+  // any list that isn't a checklist must not keep stray checkboxes
+  ed.querySelectorAll('ul:not(.checklist) input[type=checkbox], ol input[type=checkbox]').forEach(x => x.remove());
+}
 function addCheckboxTo(li) {
   if (li.querySelector('input[type=checkbox]')) return;
   const cb = document.createElement('input');
@@ -1203,18 +1222,14 @@ document.addEventListener('click', (e) => {
     else { cb.removeAttribute('checked'); li && li.classList.remove('done'); }
     const ed = cb.closest('.textblock');
     const n = currentNote();
-    if (n && ed) {
-      const idx = [...$('blocks').querySelectorAll('.textblock')].indexOf(ed);
-      const textBlocks = n.blocks.filter(b => b.type === 'text');
-      if (textBlocks[idx]) textBlocks[idx].html = ed.innerHTML;
-      touch(n);
-    }
+    if (n && ed && ed.__block) { ed.__block.html = ed.innerHTML; touch(n); }
   }
 });
 
 /* ---------- blocks ---------- */
 function addTableBlock() {
   const n = currentNote(); if (!n || isLocked(n)) return;
+  if (!lastEditor && !n.blocks.some(b => b.type === 'text')) n.blocks.push({ type: 'text', html: '' });
   const mk = () => [];
   const rows = [ [mk(),mk(),mk()], [mk(),mk(),mk()], [mk(),mk(),mk()] ];
   const tbl = { type: 'table', rows };
@@ -1289,7 +1304,9 @@ function renderTextBlock(b, bi) {
   ed.className = 'textblock';
   ed.contentEditable = 'true';
   ed.spellcheck = false;
+  ed.__block = b;
   ed.innerHTML = b.html || '';
+  normalizeChecklists(ed);
 
   ed.onfocus = () => { lastEditor = { el: ed, block: b }; lastCellCtx = null; clearCellSel(); };
   // clicking past the end of a line drops the caret after its last character
@@ -1311,8 +1328,9 @@ function renderTextBlock(b, bi) {
     }
   };
   ed.oninput = (e) => {
-    b.html = ed.innerHTML;
     autoDashList(ed, b);
+    normalizeChecklists(ed);
+    b.html = ed.innerHTML;
     touch(currentNote());
   };
   ed.onkeydown = (e) => {
@@ -1341,12 +1359,18 @@ function renderTextBlock(b, bi) {
         }
       }
       setTimeout(() => {
-        ed.querySelectorAll('ul.checklist li').forEach(li => {
-          addCheckboxTo(li);
-          const cb = li.querySelector('input[type=checkbox]');
-          if (cb && !cb.hasAttribute('checked')) { cb.checked = false; li.classList.remove('done'); }
-        });
+        // the freshly created item must always start unticked
+        const sel2 = window.getSelection();
+        let cur = sel2.anchorNode;
+        if (cur && cur.nodeType === 3) cur = cur.parentElement;
+        const newLi = cur && cur.closest && cur.closest('li');
+        if (newLi) {
+          const cb = newLi.querySelector('input[type=checkbox]');
+          if (cb) { cb.removeAttribute('checked'); cb.checked = false; newLi.classList.remove('done'); }
+        }
+        normalizeChecklists(ed);
         b.html = ed.innerHTML;
+        touch(currentNote());
       }, 0);
     }
     if (e.key === 'Tab') {
@@ -1642,6 +1666,7 @@ function renderTableBlock(b, bi) {
       cell.forEach((item) => td.appendChild(renderCellItem(b, bi, ri, ci, item, cell)));
 
       td.onmousedown = (e) => {
+        if (e.button !== 0) return;   // let right-click open the menu
         dragStart = { bi, ri, ci };
         dragMoved = false;
       };
@@ -1705,6 +1730,16 @@ function tableTab(bi, ri, ci, back) {
   renderBlocks();
   focusCellNow(bi, nr, nc);
 }
+/* focus a specific item inside a specific cell */
+function focusCellItem(bi, ri, ci, idx) {
+  setTimeout(() => {
+    const td = document.querySelector('[data-cell][data-bi="' + bi + '"][data-ri="' + ri + '"][data-ci="' + ci + '"]');
+    if (!td) return;
+    const texts = td.querySelectorAll('.ci-text');
+    const el = texts[Math.min(idx, texts.length - 1)];
+    if (el) placeCaretAtEnd(el);
+  }, 0);
+}
 /* focus the last text item of one specific cell (never a stray empty one elsewhere) */
 function focusCellNow(bi, ri, ci) {
   setTimeout(() => {
@@ -1758,14 +1793,14 @@ function renderCellItem(block, bi, ri, ci, item, cell) {
   txt.contentEditable = 'true';
   txt.spellcheck = false;
   txt.textContent = item.text;
-  if (pendingFocusItem === item) { txt.setAttribute('data-focus-me', '1'); pendingFocusItem = null; }
-  txt.onfocus = () => { clearCellSel(); lastEditor = null; lastCellCtx = { item, cell, bi }; };
+  txt.onfocus = () => { clearCellSel(); lastEditor = null; lastCellCtx = { item, cell, bi, ri, ci }; };
   txt.oninput = () => {
     // typing "- " at the start of a cell item turns it into a dashed item
     if (item.kind === 'text' && /^-[\s\u00a0]/.test(txt.textContent)) {
       item.kind = 'dash';
       item.text = txt.textContent.replace(/^-[\s\u00a0]+/, '');
-      touch(currentNote()); renderBlocks(); focusCellNow(bi, ri, ci);
+      const idx = cell.indexOf(item);
+      touch(currentNote()); renderBlocks(); focusCellItem(bi, ri, ci, idx);
       return;
     }
     item.text = txt.textContent;
@@ -1781,14 +1816,30 @@ function renderCellItem(block, bi, ri, ci, item, cell) {
     if (e.key === 'Enter') {
       e.preventDefault();
       const idx = cell.indexOf(item);
+      // enter on an empty list item ends the list, like apple notes
+      if (item.kind !== 'text' && txt.textContent.trim() === '') {
+        item.kind = 'text'; item.done = false;
+        touch(currentNote()); renderBlocks(); focusCellNow(bi, ri, ci);
+        return;
+      }
       cell.splice(idx + 1, 0, { kind: item.kind, text: '', done: false });
-      touch(currentNote()); renderBlocks(); focusCellNow(bi, ri, ci);
+      touch(currentNote()); renderBlocks();
+      focusCellItem(bi, ri, ci, idx + 1);
+      return;
     }
     if (e.key === 'Backspace' && txt.textContent === '') {
       e.preventDefault();
       const idx = cell.indexOf(item);
+      // first backspace turns a checklist/dash item back into plain text
+      if (item.kind !== 'text') {
+        item.kind = 'text'; item.done = false;
+        touch(currentNote()); renderBlocks(); focusCellItem(bi, ri, ci, idx);
+        return;
+      }
       cell.splice(idx, 1);
       touch(currentNote()); renderBlocks();
+      focusCellItem(bi, ri, ci, Math.max(0, idx - 1));
+      return;
     }
   };
   wrap.appendChild(txt);
@@ -1846,7 +1897,16 @@ document.addEventListener('keydown', (e) => {
       if (sidebarFocus && currentNote()) { e.preventDefault(); trashCurrent(); return; }
     }
   }
-  if (e.key === 'Escape') { clearCellSel(); $('tbl-ctxmenu').classList.add('hidden'); }
+  if (e.key === 'Escape') {
+    clearCellSel();
+    $('tbl-ctxmenu').classList.add('hidden');
+    if (document.activeElement === $('search')) { $('search').value = ''; renderList(); $('search').blur(); }
+  }
+});
+
+/* flush pending saves when leaving the page */
+window.addEventListener('beforeunload', () => {
+  if (saveTimer && USER) { clearTimeout(saveTimer); saveNotes(); }
 });
 
 init();
