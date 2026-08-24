@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>retronotes</title>
+<style>
+  :root {
+    --green: #2e8b2e;
+    --green-dark: #1c6b1c;
+    --green-bg: #f5fff5;
+    --green-bg2: #e4ffe4;
+    --yellow: #ffffcc;
+    --yellow-soft: #fffff0;
+    --border: #b5ccb5;
+    --bg: #ffffff;
+    --text: #222222;
+    --text-soft: #888888;
+    --panel-bg: #ffffff;
+    --link: #0000EE;
+    --mono-bg: #f7f7f7;
+    --mono-border: #e0e0e0;
+  }
+  [data-theme="dark"] {
+    --green: #4caf50;
+    --green-dark: #7fd67f;
+    --green-bg: #16281a;
+    --green-bg2: #1e3a24;
+    --yellow: #3a3a22;
+    --yellow-soft: #2b2b1e;
+    --border: #3d5a42;
+    --bg: #141914;
+    --text: #ddddd5;
+    --text-soft: #8a998a;
+    --panel-bg: #1a201a;
+    --link: #8ab4f8;
+    --mono-bg: #20261f;
+    --mono-border: #33402f;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: Tahoma, Verdana, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+  }
+  a { color: var(--link); text-decoration: underline; cursor: pointer; }
+  a:hover { color: var(--green-dark); }
+  a.action { text-decoration: none; }
+  a.action::before { content: "[ "; color: #999; }
+  a.action::after { content: " ]"; color: #999; }
+
+  /* ---- top bar ---- */
+  .topbar {
+    background: var(--green-bg);
+    border-bottom: 1px solid var(--border);
+    color: #444;
+    padding: 4px 12px;
+    font-size: 12px;
+    display: flex;
+    justify-content: flex-end;
+    min-height: 24px;
+  }
+  .topbar a { color: var(--green-dark); }
+
+  .masthead {
+    padding: 14px 18px 6px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .logo-mark { width: 34px; height: 34px; flex-shrink: 0; }
+  .logo {
+    font-family: "Trebuchet MS", Tahoma, sans-serif;
+    font-size: 30px;
+    font-weight: bold;
+    color: var(--green-dark);
+    letter-spacing: -1px;
+  }
+
+  /* ---- layout ---- */
+  .wrap {
+    display: flex;
+    gap: 14px;
+    padding: 10px 18px 40px 18px;
+    align-items: flex-start;
+  }
+  .sidebar { width: 260px; flex-shrink: 0; }
+  .main { flex: 1; min-width: 0; }
+
+  .panel { border: 1px solid var(--border); background: var(--panel-bg); margin-bottom: 14px; }
+  .panel-h {
+    background: var(--green-bg);
+    border-bottom: 1px solid var(--border);
+    padding: 5px 8px;
+    font-weight: bold;
+    color: var(--green-dark);
+    font-size: 13px;
+  }
+
+  .newnote-btn {
+    display: block;
+    text-align: center;
+    border: 2px solid var(--green);
+    background: var(--green-bg);
+    color: var(--green-dark);
+    font-weight: bold;
+    padding: 7px;
+    margin-bottom: 12px;
+    text-decoration: none;
+    font-size: 14px;
+  }
+  .newnote-btn:hover { background: var(--green-bg2); color: var(--green-dark); }
+
+  .searchbox {
+    width: 100%;
+    font-family: inherit;
+    font-size: 13px;
+    padding: 5px 6px;
+    border: 1px solid var(--border);
+    margin-bottom: 12px;
+    background: var(--panel-bg);
+    color: var(--text);
+  }
+  .searchbox:focus { outline: 1px solid var(--green); background: var(--yellow-soft); }
+
+  .notelist { list-style: none; margin: 0; padding: 0; }
+  .notelist li {
+    padding: 6px 8px;
+    border-bottom: 1px dotted var(--border);
+    cursor: pointer;
+    background: var(--yellow-soft);
+  }
+  .notelist li:last-child { border-bottom: none; }
+  .notelist li:hover { background: var(--yellow); }
+  .notelist li.active { background: var(--yellow); }
+  .notelist .nl-title { color: var(--link); text-decoration: underline; font-size: 13px; }
+  .notelist li.active .nl-title { color: var(--green-dark); }
+  .notelist .nl-meta { font-size: 11px; color: var(--text-soft); margin-top: 2px; }
+  .pin-flag { color: var(--green); font-size: 11px; }
+  .empty-msg { color: var(--text-soft); font-size: 12px; padding: 6px 8px; font-style: italic; }
+
+  /* ---- editor ---- */
+  .editor-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 6px 8px;
+    background: var(--green-bg);
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    position: relative;
+  }
+  .editor-tools { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+  .tbtn {
+    display: inline-block;
+    min-width: 26px;
+    text-align: center;
+    padding: 3px 6px;
+    border: 1px solid var(--border);
+    background: var(--panel-bg);
+    color: var(--text);
+    cursor: pointer;
+    text-decoration: none;
+    font-size: 13px;
+    user-select: none;
+  }
+  .tbtn:hover { background: var(--green-bg2); color: var(--green-dark); }
+  .tbtn.danger { color: #b03030; }
+  .tbtn.danger:hover { background: #ffecec; color: #b03030; }
+  .tbtn b, .tbtn i, .tbtn u, .tbtn s { pointer-events: none; }
+
+  /* Aa formatting menu */
+  .fmt-menu {
+    position: absolute;
+    top: 100%;
+    left: 6px;
+    z-index: 30;
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.08);
+    padding: 8px;
+    min-width: 190px;
+  }
+  .fmt-row { display: flex; gap: 4px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px dotted var(--border); }
+  .fmt-item {
+    display: block;
+    padding: 5px 8px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .fmt-item:hover { background: var(--green-bg); }
+  .fmt-title { font-size: 20px; font-weight: bold; }
+  .fmt-heading { font-size: 16px; font-weight: bold; }
+  .fmt-subheading { font-size: 14px; font-weight: bold; }
+  .fmt-mono { font-family: "Courier New", monospace; }
+
+  .title-input {
+    width: 100%;
+    font-family: inherit;
+    font-size: 20px;
+    font-weight: bold;
+    border: none;
+    border-bottom: 1px dashed var(--border);
+    padding: 8px;
+    outline: none;
+    color: var(--text);
+    background: transparent;
+  }
+  .title-input:focus { border-bottom: 1px dashed var(--green); background: var(--yellow-soft); }
+  .note-date { font-size: 11px; color: var(--text-soft); text-align: center; padding: 4px; }
+
+  .blocks { padding: 8px; }
+  .block { margin-bottom: 12px; position: relative; }
+  .block-tools {
+    font-size: 11px;
+    text-align: right;
+    visibility: hidden;
+    margin-bottom: 2px;
+  }
+  .block:hover .block-tools { visibility: visible; }
+
+  /* rich text block */
+  .textblock {
+    min-height: 24px;
+    outline: none;
+    line-height: 1.5;
+    padding: 2px 4px;
+    font-size: 13px;
+    word-break: break-word;
+  }
+  .textblock:focus { background: var(--yellow-soft); }
+  .textblock:empty::before { content: attr(data-ph); color: #aaa; }
+  .textblock h1 { font-size: 20px; margin: 4px 0; }
+  .textblock h2 { font-size: 16px; margin: 4px 0; }
+  .textblock h3 { font-size: 14px; margin: 4px 0; }
+  .textblock pre {
+    font-family: "Courier New", monospace;
+    background: var(--mono-bg);
+    border: 1px solid var(--mono-border);
+    padding: 4px 6px;
+    margin: 4px 0;
+    white-space: pre-wrap;
+  }
+  .textblock blockquote {
+    border-left: 3px solid var(--green);
+    margin: 4px 0;
+    padding: 2px 10px;
+    color: var(--text-soft);
+  }
+  .textblock ul, .textblock ol { margin: 4px 0; padding-left: 26px; }
+  .textblock ul.dashed { list-style: none; padding-left: 20px; }
+  .textblock ul.dashed li::before { content: "\2013\00a0\00a0"; color: #666; }
+  .textblock img { max-width: 100%; height: auto; display: block; margin: 6px 0; border: 1px solid var(--border); }
+
+  /* ---- tables ---- */
+  .table-scroll { overflow-x: auto; max-width: 100%; }
+  table.ntable {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 12px;
+  }
+  table.ntable td, table.ntable th {
+    border: 1px solid var(--border);
+    padding: 5px 6px;
+    vertical-align: top;
+    min-width: 88px;
+  }
+  table.ntable th {
+    background: var(--green-bg);
+    color: var(--green-dark);
+    text-align: left;
+  }
+  .block.tbl-selected .table-scroll {
+    outline: 2px solid var(--green);
+    background: var(--green-bg);
+  }
+  .block.tbl-selected table.ntable td { background: var(--green-bg2); }
+  .block.tbl-selected table.ntable th { background: var(--green-bg2); }
+  .tbl-hint {
+    display: none;
+    font-size: 11px;
+    color: var(--green-dark);
+    padding: 2px 0;
+  }
+  .block.tbl-selected .tbl-hint { display: block; }
+
+  .cell-item { display: flex; align-items: flex-start; gap: 5px; margin-bottom: 3px; }
+  .cell-item input[type=checkbox] { margin: 2px 0 0 0; flex-shrink: 0; cursor: pointer; accent-color: var(--green); }
+  .cell-item .ci-text {
+    flex: 1;
+    min-width: 40px;
+    outline: none;
+    line-height: 1.35;
+    word-break: break-word;
+  }
+  .cell-item .ci-text:focus { background: var(--yellow-soft); }
+  .cell-item.done .ci-text { text-decoration: line-through; color: #999; }
+  .cell-add { font-size: 10px; visibility: hidden; white-space: nowrap; }
+  td:hover .cell-add, th:hover .cell-add { visibility: visible; }
+  .cell-add a { color: #999; text-decoration: none; margin-right: 6px; }
+  .cell-add a:hover { color: var(--green-dark); text-decoration: underline; }
+  .ci-del { color: #ccc; text-decoration: none; font-size: 11px; visibility: hidden; flex-shrink: 0; }
+  .cell-item:hover .ci-del { visibility: visible; }
+  .ci-del:hover { color: #b03030; }
+
+  /* ---- login ---- */
+  .login-wrap { max-width: 400px; margin: 60px auto; text-align: center; padding: 0 14px; }
+  .login-box { border: 1px solid var(--border); padding: 24px; background: var(--green-bg); }
+  .login-box input {
+    width: 100%;
+    font-family: inherit;
+    font-size: 14px;
+    padding: 7px;
+    border: 1px solid var(--border);
+    margin: 10px 0;
+    background: var(--panel-bg);
+    color: var(--text);
+  }
+  .g-btn {
+    display: inline-block;
+    border: 2px solid var(--green);
+    background: var(--panel-bg);
+    color: var(--green-dark);
+    font-weight: bold;
+    padding: 8px 18px;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .g-btn:hover { background: var(--green-bg2); }
+  .login-tabs { display: flex; justify-content: center; gap: 18px; }
+  .login-tab {
+    font-weight: bold;
+    font-size: 14px;
+    color: #7a9a7a;
+    text-decoration: none;
+    padding-bottom: 2px;
+  }
+  .login-tab.active { color: var(--green-dark); border-bottom: 2px solid var(--green); }
+  .login-tab:hover { color: var(--green-dark); }
+  .login-error {
+    background: #ffecec;
+    border: 1px solid #d8a0a0;
+    color: #92322e;
+    font-size: 12px;
+    padding: 6px 8px;
+    margin-bottom: 10px;
+    text-align: left;
+  }
+  .fineprint { font-size: 11px; color: #888; margin-top: 14px; line-height: 1.5; }
+  .hr-dotted { border: none; border-top: 1px dotted var(--border); margin: 12px 0; }
+
+  .hidden { display: none !important; }
+
+  @media (max-width: 720px) {
+    .wrap { flex-direction: column; }
+    .sidebar { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a id="theme-toggle" title="toggle dark mode" onclick="toggleTheme()" style="text-decoration:none; margin-right:auto;">&#9789; dark</a>
+  <span id="acct-area" class="hidden"><span id="acct-email"></span> &nbsp;<a onclick="logout()">log out</a></span>
+</div>
+
+<div class="masthead">
+  <svg class="logo-mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <!-- entropy diagram, reversed: 8 arrows pointing inward, chunky heads -->
+    <g stroke="var(--green-dark)" stroke-width="8" stroke-linecap="round">
+      <line x1="50" y1="6"  x2="50" y2="26"/>
+      <line x1="50" y1="94" x2="50" y2="74"/>
+      <line x1="6"  y1="50" x2="26" y2="50"/>
+      <line x1="94" y1="50" x2="74" y2="50"/>
+      <line x1="19" y1="19" x2="33" y2="33"/>
+      <line x1="81" y1="81" x2="67" y2="67"/>
+      <line x1="19" y1="81" x2="33" y2="67"/>
+      <line x1="81" y1="19" x2="67" y2="33"/>
+    </g>
+    <g fill="var(--green-dark)">
+      <polygon points="50,45 39,24 61,24"/>
+      <polygon points="50,55 39,76 61,76"/>
+      <polygon points="45,50 24,39 24,61"/>
+      <polygon points="55,50 76,39 76,61"/>
+      <polygon points="42,42 24,36 36,24"/>
+      <polygon points="58,58 76,64 64,76"/>
+      <polygon points="42,58 36,76 24,64"/>
+      <polygon points="58,42 64,24 76,36"/>
+    </g>
+  </svg>
+  <div class="logo">retronotes</div>
+</div>
+
+<!-- ============ LOGIN VIEW ============ -->
+<div id="view-login" class="login-wrap hidden">
+  <div class="login-box">
+    <div class="login-tabs">
+      <a id="tab-signin" class="login-tab active" onclick="setAuthMode('signin')">sign in</a>
+      <a id="tab-signup" class="login-tab" onclick="setAuthMode('signup')">create account</a>
+    </div>
+    <hr class="hr-dotted">
+    <input type="email" id="login-email" placeholder="email address" autocomplete="email">
+    <input type="password" id="login-password" placeholder="password" autocomplete="current-password"
+           onkeydown="if(event.key==='Enter')submitAuth()">
+    <input type="password" id="login-password2" class="hidden" placeholder="confirm password"
+           autocomplete="new-password" onkeydown="if(event.key==='Enter')submitAuth()">
+    <div class="login-error hidden" id="login-error"></div>
+    <label style="display:block; text-align:left; font-size:12px; margin-bottom:10px; cursor:pointer;">
+      <input type="checkbox" id="remember-me" checked style="accent-color:var(--green); vertical-align:middle;">
+      remember me on this device
+    </label>
+    <button class="g-btn" id="auth-btn" onclick="submitAuth()">Sign in</button>
+  </div>
+</div>
+
+<!-- ============ APP VIEW ============ -->
+<div id="view-app" class="wrap hidden">
+
+  <div class="sidebar">
+    <a class="newnote-btn" onclick="newNote()">&#9998; new note</a>
+    <input type="text" id="search" class="searchbox" placeholder="search notes" oninput="renderList()">
+
+    <div class="panel">
+      <div class="panel-h">&#128204; pinned</div>
+      <div style="padding:0;">
+        <ul class="notelist" id="list-pinned"></ul>
+        <div class="empty-msg hidden" id="empty-pinned">nothing pinned</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-h">&#128221; notes <span id="note-count" style="font-weight:normal;color:#7a9a7a;"></span></div>
+      <div style="padding:0;">
+        <ul class="notelist" id="list-notes"></ul>
+        <div class="empty-msg hidden" id="empty-notes">no notes yet.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="panel" id="editor-panel">
+      <div class="editor-head">
+        <div class="editor-tools">
+          <span class="tbtn" title="format text" onclick="toggleFmtMenu(event)">Aa</span>
+          <span class="tbtn" title="bold" onmousedown="fmt(event,'bold')"><b>B</b></span>
+          <span class="tbtn" title="italic" onmousedown="fmt(event,'italic')"><i>I</i></span>
+          <span class="tbtn" title="underline" onmousedown="fmt(event,'underline')"><u>U</u></span>
+          <span class="tbtn" title="strikethrough" onmousedown="fmt(event,'strikeThrough')"><s>S</s></span>
+          <span style="width:6px;"></span>
+          <span class="tbtn" title="add text" onclick="addTextBlock()">&#182;</span>
+          <span class="tbtn" title="add table" onclick="addTableBlock()">&#8862;</span>
+          <span style="width:6px;"></span>
+          <span class="tbtn" title="undo (ctrl+z)" onclick="undo()">&#8630;</span>
+          <span class="tbtn" title="redo (ctrl+shift+z)" onclick="redo()">&#8631;</span>
+        </div>
+        <div class="editor-tools">
+          <span class="tbtn" id="pin-btn" title="pin note" onclick="togglePin()">&#128204;</span>
+          <span class="tbtn danger" title="delete note" onclick="deleteNote()">&#128465;</span>
+        </div>
+
+        <div class="fmt-menu hidden" id="fmt-menu">
+          <div class="fmt-item fmt-title" onmousedown="fmt(event,'formatBlock','h1')">Title</div>
+          <div class="fmt-item fmt-heading" onmousedown="fmt(event,'formatBlock','h2')">Heading</div>
+          <div class="fmt-item fmt-subheading" onmousedown="fmt(event,'formatBlock','h3')">Subheading</div>
+          <div class="fmt-item" onmousedown="fmt(event,'formatBlock','p')">Body</div>
+          <div class="fmt-item fmt-mono" onmousedown="fmt(event,'formatBlock','pre')">Monostyled</div>
+          <hr class="hr-dotted">
+          <div class="fmt-item" onmousedown="fmt(event,'insertUnorderedList')">&bull; Bulleted List</div>
+          <div class="fmt-item" onmousedown="fmt(event,'dashedList')">&ndash; Dashed List</div>
+          <div class="fmt-item" onmousedown="fmt(event,'insertOrderedList')">1. Numbered List</div>
+          <hr class="hr-dotted">
+          <div class="fmt-item" onmousedown="fmt(event,'formatBlock','blockquote')">&#124; Block Quote</div>
+        </div>
+      </div>
+      <div class="note-date" id="note-date"></div>
+      <input type="text" class="title-input" id="note-title" placeholder="untitled note" oninput="onTitleInput()">
+      <div class="blocks" id="blocks"></div>
+    </div>
+    <div class="empty-msg" id="no-note-msg" style="text-align:center; padding:40px; font-size:13px;">
+      select a note on the left, or <a onclick="newNote()">make a new one</a>.
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* =========================================================
+   retronotes v2 (supabase edition)
+   ========================================================= */
+
+let USER = null;
+let notes = [];
+let currentId = null;
+let saveTimer = null;
+let lastEditor = null;        // last focused rich-text block element + its data
+let selectedTableBi = null;   // index of the selected table block
+let applyingHistory = false;
+
+const $ = id => document.getElementById(id);
+const now = () => Date.now();
+const uid = () => 'n' + Math.random().toString(36).slice(2, 9);
+
+/* ---------- supabase setup ----------
+   1. create a free project at supabase.com
+   2. run supabase.sql in the SQL editor
+   3. paste your Project URL and anon public key below (Settings -> API) */
+const SUPABASE_URL = 'https://dmucubxjvronhwmymaom.supabase.co/rest/v1/';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtdWN1YnhqdnJvbmh3bXltYW9tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc1MzUyMTMsImV4cCI6MjEwMzExMTIxM30.uUmw1nfxXzIFrwIuGzUnNeI6ANH9NXIQ0-vR6nLs2UQ';
+
+const CONFIGURED = !SUPABASE_URL.includes('PASTE_YOUR');
+// "remember me" decides where the login token lives:
+// localStorage survives closing the browser, sessionStorage doesn't
+const authStorage = {
+  getItem: k => (localStorage.getItem('rn-remember') === 'no' ? sessionStorage : localStorage).getItem(k),
+  setItem: (k, v) => (localStorage.getItem('rn-remember') === 'no' ? sessionStorage : localStorage).setItem(k, v),
+  removeItem: k => { sessionStorage.removeItem(k); localStorage.removeItem(k); }
+};
+const sb = CONFIGURED
+  ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { storage: authStorage } })
+  : null;
+
+/* ---------- persistence ---------- */
+async function loadNotes() {
+  notes = [];
+  try {
+    const { data, error } = await sb.from('notes_data')
+      .select('data').eq('user_id', USER.id).maybeSingle();
+    if (!error && data && data.data) notes = data.data;
+  } catch (e) { notes = []; }
+  // migrate v1 text blocks (plain text) to rich html
+  for (const n of notes) for (const b of n.blocks) {
+    if (b.type === 'text' && b.text !== undefined && b.html === undefined) {
+      const esc = document.createElement('div');
+      esc.textContent = b.text;
+      b.html = esc.innerHTML.replace(/\n/g, '<br>');
+      delete b.text;
+    }
+  }
+}
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveNotes, 500);
+}
+async function saveNotes(attempt) {
+  attempt = attempt || 1;
+  try {
+    const { error } = await sb.from('notes_data').upsert({
+      user_id: USER.id, data: notes, updated_at: new Date().toISOString()
+    });
+    if (error) throw error;
+  } catch (e) {
+    if (attempt < 4) setTimeout(() => saveNotes(attempt + 1), 1500 * attempt);
+    else console.error('save failed after retries', e);
+  }
+}
+
+/* ---------- undo / redo ---------- */
+const histories = {}; // noteId -> { stack: [snap], idx }
+let snapTimer = null;
+
+function snapOf(n) { return JSON.stringify({ title: n.title, pinned: n.pinned, blocks: n.blocks }); }
+function historyFor(id) {
+  if (!histories[id]) histories[id] = { stack: [], idx: -1 };
+  return histories[id];
+}
+function initHistory(n) {
+  const h = historyFor(n.id);
+  if (h.stack.length === 0) { h.stack.push(snapOf(n)); h.idx = 0; }
+}
+function scheduleSnapshot() {
+  if (applyingHistory) return;
+  clearTimeout(snapTimer);
+  snapTimer = setTimeout(takeSnapshot, 600);
+}
+function takeSnapshot() {
+  const n = currentNote(); if (!n) return;
+  const h = historyFor(n.id);
+  const s = snapOf(n);
+  if (h.stack[h.idx] === s) return;
+  h.stack = h.stack.slice(0, h.idx + 1);
+  h.stack.push(s);
+  if (h.stack.length > 100) h.stack.shift();
+  h.idx = h.stack.length - 1;
+}
+function undo() {
+  const n = currentNote(); if (!n) return;
+  clearTimeout(snapTimer); takeSnapshot();
+  const h = historyFor(n.id);
+  if (h.idx <= 0) return;
+  h.idx--;
+  applySnapshot(n, h.stack[h.idx]);
+}
+function redo() {
+  const n = currentNote(); if (!n) return;
+  const h = historyFor(n.id);
+  if (h.idx >= h.stack.length - 1) return;
+  h.idx++;
+  applySnapshot(n, h.stack[h.idx]);
+}
+function applySnapshot(n, snap) {
+  applyingHistory = true;
+  const data = JSON.parse(snap);
+  n.title = data.title; n.pinned = data.pinned; n.blocks = data.blocks;
+  n.updated = now();
+  $('note-title').value = n.title;
+  $('pin-btn').style.background = n.pinned ? 'var(--green-bg2)' : '';
+  renderBlocks(); renderList(); scheduleSave();
+  applyingHistory = false;
+}
+
+/* ---------- session & auth ---------- */
+let authMode = 'signin';
+
+function setAuthMode(m) {
+  authMode = m;
+  $('tab-signin').classList.toggle('active', m === 'signin');
+  $('tab-signup').classList.toggle('active', m === 'signup');
+  $('login-password2').classList.toggle('hidden', m !== 'signup');
+  $('login-password').autocomplete = m === 'signup' ? 'new-password' : 'current-password';
+  $('auth-btn').textContent = m === 'signup' ? 'Create account' : 'Sign in';
+  authError('');
+}
+function authError(msg) {
+  const el = $('login-error');
+  el.textContent = msg;
+  el.classList.toggle('hidden', !msg);
+}
+function validEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+}
+async function submitAuth() {
+  if (!CONFIGURED) { authError('app is not configured yet: add your supabase keys to index.html (see README).'); return; }
+  const email = $('login-email').value.trim().toLowerCase();
+  const pw = $('login-password').value;
+
+  if (!validEmail(email)) { authError('please enter a valid email address.'); return; }
+  if (!pw) { authError('please enter your password.'); return; }
+
+  // set remember preference BEFORE logging in so the token is stored in the right place
+  localStorage.setItem('rn-remember', $('remember-me').checked ? 'yes' : 'no');
+
+  if (authMode === 'signup') {
+    if (pw.length < 8) { authError('password must be at least 8 characters.'); return; }
+    if (pw !== $('login-password2').value) { authError('passwords do not match.'); return; }
+    const { data, error } = await sb.auth.signUp({ email, password: pw });
+    if (error) { authError(error.message.toLowerCase()); return; }
+    if (!data.session) {
+      // email confirmation is turned on in supabase
+      setAuthMode('signin');
+      authError('account created. check your email for a confirmation link, then sign in.');
+      return;
+    }
+    USER = data.session.user;
+  } else {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
+    if (error) {
+      authError(/invalid/i.test(error.message) ? 'incorrect email or password.' : error.message.toLowerCase());
+      return;
+    }
+    USER = data.session.user;
+  }
+  await enterApp();
+}
+async function init() {
+  loadTheme();
+  if (CONFIGURED) {
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      if (session) { USER = session.user; await enterApp(); return; }
+    } catch (e) {}
+  }
+  $('view-login').classList.remove('hidden');
+}
+async function logout() {
+  try { await sb.auth.signOut(); } catch (e) {}
+  location.reload();
+}
+
+/* ---------- theme (device preference, plain localStorage) ---------- */
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  $('theme-toggle').innerHTML = t === 'dark' ? '&#9788; light' : '&#9789; dark';
+}
+function loadTheme() {
+  setTheme(localStorage.getItem('rn-theme') === 'dark' ? 'dark' : 'light');
+}
+function toggleTheme() {
+  const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  setTheme(t);
+  localStorage.setItem('rn-theme', t);
+}
+
+async function enterApp() {
+  $('view-login').classList.add('hidden');
+  $('view-app').classList.remove('hidden');
+  $('acct-area').classList.remove('hidden');
+  $('acct-email').textContent = USER.email;
+  await loadNotes();
+  renderList();
+  const first = sortedNotes()[0];
+  if (first) openNote(first.id); else showNoNote();
+}
+
+/* ---------- note list ---------- */
+function sortedNotes() { return [...notes].sort((a, b) => b.updated - a.updated); }
+function renderList() {
+  const q = $('search').value.trim().toLowerCase();
+  const pinnedUl = $('list-pinned'), notesUl = $('list-notes');
+  pinnedUl.innerHTML = ''; notesUl.innerHTML = '';
+  let pc = 0, nc = 0;
+  for (const n of sortedNotes()) {
+    if (q && !noteText(n).toLowerCase().includes(q)) continue;
+    const li = document.createElement('li');
+    if (n.id === currentId) li.classList.add('active');
+    const d = new Date(n.updated);
+    li.innerHTML = '<span class="nl-title"></span>' +
+      (n.pinned ? ' <span class="pin-flag">&#9733;</span>' : '') +
+      '<div class="nl-meta"></div>';
+    li.querySelector('.nl-title').textContent = n.title || 'untitled note';
+    li.querySelector('.nl-meta').textContent = d.toLocaleDateString() + ' ' +
+      d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' · ' + preview(n);
+    li.onclick = () => openNote(n.id);
+    if (n.pinned) { pinnedUl.appendChild(li); pc++; } else { notesUl.appendChild(li); nc++; }
+  }
+  $('empty-pinned').classList.toggle('hidden', pc > 0);
+  $('empty-notes').classList.toggle('hidden', nc > 0);
+  $('note-count').textContent = '(' + notes.length + ')';
+}
+function stripHtml(html) {
+  const d = document.createElement('div'); d.innerHTML = html || '';
+  return d.textContent || '';
+}
+function noteText(n) {
+  let t = n.title + ' ';
+  for (const b of n.blocks) {
+    if (b.type === 'text') t += stripHtml(b.html) + ' ';
+    else for (const row of b.rows) for (const cell of row) for (const it of cell) t += it.text + ' ';
+  }
+  return t;
+}
+function preview(n) {
+  for (const b of n.blocks) {
+    if (b.type === 'text') {
+      const t = stripHtml(b.html).trim();
+      if (t) return t.slice(0, 40);
+      if ((b.html || '').includes('<img')) return '[image]';
+    }
+    if (b.type === 'table') return '[table]';
+  }
+  return 'empty';
+}
+
+/* ---------- open / create / delete ---------- */
+function currentNote() { return notes.find(n => n.id === currentId); }
+function showNoNote() {
+  currentId = null;
+  $('editor-panel').classList.add('hidden');
+  $('no-note-msg').classList.remove('hidden');
+}
+function openNote(id) {
+  currentId = id;
+  selectedTableBi = null;
+  const n = currentNote();
+  if (!n) { showNoNote(); return; }
+  $('editor-panel').classList.remove('hidden');
+  $('no-note-msg').classList.add('hidden');
+  $('note-title').value = n.title;
+  $('note-date').textContent = 'last edited ' + new Date(n.updated).toLocaleString();
+  $('pin-btn').style.background = n.pinned ? 'var(--green-bg2)' : '';
+  initHistory(n);
+  renderBlocks();
+  renderList();
+}
+function newNote() {
+  const n = { id: uid(), title: '', pinned: false, updated: now(),
+              blocks: [{ type: 'text', html: '' }] };
+  notes.push(n);
+  scheduleSave();
+  openNote(n.id);
+  $('note-title').focus();
+}
+function deleteNote() {
+  const n = currentNote(); if (!n) return;
+  notes = notes.filter(x => x.id !== n.id);
+  delete histories[n.id];
+  scheduleSave();
+  const next = sortedNotes()[0];
+  if (next) openNote(next.id); else { showNoNote(); renderList(); }
+}
+function togglePin() {
+  const n = currentNote(); if (!n) return;
+  n.pinned = !n.pinned;
+  $('pin-btn').style.background = n.pinned ? 'var(--green-bg2)' : '';
+  touch(n); renderList();
+}
+function touch(n) {
+  n.updated = now();
+  $('note-date').textContent = 'last edited ' + new Date(n.updated).toLocaleString();
+  scheduleSave();
+  scheduleSnapshot();
+}
+function onTitleInput() {
+  const n = currentNote(); if (!n) return;
+  n.title = $('note-title').value;
+  touch(n); renderList();
+}
+
+/* ---------- formatting ---------- */
+function toggleFmtMenu(e) {
+  e.stopPropagation();
+  $('fmt-menu').classList.toggle('hidden');
+}
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#fmt-menu') && !e.target.closest('.tbtn')) {
+    $('fmt-menu').classList.add('hidden');
+  }
+});
+function fmt(e, cmd, arg) {
+  e.preventDefault(); // keep selection in the editable
+  if (!lastEditor || !document.body.contains(lastEditor.el)) return;
+  lastEditor.el.focus();
+  if (cmd === 'dashedList') {
+    document.execCommand('insertUnorderedList');
+    const sel = window.getSelection();
+    if (sel.anchorNode) {
+      let node = sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement;
+      const ul = node && node.closest('ul');
+      if (ul) ul.classList.add('dashed');
+    }
+  } else if (cmd === 'formatBlock') {
+    document.execCommand('formatBlock', false, arg.toUpperCase());
+  } else {
+    document.execCommand(cmd);
+  }
+  lastEditor.block.html = lastEditor.el.innerHTML;
+  touch(currentNote());
+  if (cmd !== 'bold' && cmd !== 'italic' && cmd !== 'underline' && cmd !== 'strikeThrough') {
+    $('fmt-menu').classList.add('hidden');
+  }
+}
+
+/* ---------- blocks ---------- */
+function addTextBlock() {
+  const n = currentNote(); if (!n) return;
+  n.blocks.push({ type: 'text', html: '' });
+  touch(n); renderBlocks();
+}
+function addTableBlock() {
+  const n = currentNote(); if (!n) return;
+  const mk = () => [];
+  const rows = [ [mk(),mk(),mk()], [mk(),mk(),mk()], [mk(),mk(),mk()] ];
+  n.blocks.push({ type: 'table', rows });
+  n.blocks.push({ type: 'text', html: '' });
+  touch(n); renderBlocks();
+}
+function removeBlock(bi) {
+  const n = currentNote(); if (!n) return;
+  n.blocks.splice(bi, 1);
+  if (n.blocks.length === 0) n.blocks.push({ type: 'text', html: '' });
+  selectedTableBi = null;
+  touch(n); renderBlocks();
+}
+
+function renderBlocks() {
+  const n = currentNote(); if (!n) return;
+  const host = $('blocks');
+  host.innerHTML = '';
+  n.blocks.forEach((b, bi) => {
+    const div = document.createElement('div');
+    div.className = 'block';
+    if (b.type === 'table' && bi === selectedTableBi) div.classList.add('tbl-selected');
+
+    if (b.type === 'table') {
+      const tools = document.createElement('div');
+      tools.className = 'block-tools';
+      tools.innerHTML =
+        '<a class="action" onclick="tableAddRow(' + bi + ')">+ row</a> ' +
+        '<a class="action" onclick="tableAddCol(' + bi + ')">+ col</a> ' +
+        '<a class="action" onclick="removeBlock(' + bi + ')" style="color:#b03030;">remove table</a>';
+      div.appendChild(tools);
+      div.appendChild(renderTableBlock(b, bi));
+      const hint = document.createElement('div');
+      hint.className = 'tbl-hint';
+      hint.textContent = 'table selected · press delete/backspace to remove · esc to deselect';
+      div.appendChild(hint);
+    } else {
+      div.appendChild(renderTextBlock(b, bi));
+    }
+    host.appendChild(div);
+  });
+
+  // clickable space below the last block, so you can always type under a table
+  const tail = document.createElement('div');
+  tail.style.minHeight = '80px';
+  tail.style.cursor = 'text';
+  tail.onclick = () => {
+    const last = n.blocks[n.blocks.length - 1];
+    if (!last || last.type !== 'text') {
+      n.blocks.push({ type: 'text', html: '' });
+      touch(n); renderBlocks();
+    }
+    const eds = $('blocks').querySelectorAll('.textblock');
+    if (eds.length) placeCaretAtEnd(eds[eds.length - 1]);
+  };
+  host.appendChild(tail);
+}
+
+function placeCaretAtEnd(el) {
+  el.focus();
+  const r = document.createRange();
+  r.selectNodeContents(el); r.collapse(false);
+  const s = window.getSelection();
+  s.removeAllRanges(); s.addRange(r);
+}
+
+/* ---------- rich text blocks ---------- */
+function renderTextBlock(b, bi) {
+  const ed = document.createElement('div');
+  ed.className = 'textblock';
+  ed.contentEditable = 'true';
+  ed.spellcheck = false;
+  ed.setAttribute('data-ph', 'type here...');
+  ed.innerHTML = b.html || '';
+
+  ed.onfocus = () => { lastEditor = { el: ed, block: b }; deselectTable(); };
+  ed.oninput = () => { b.html = ed.innerHTML; touch(currentNote()); };
+  ed.onkeydown = (e) => {
+    // delete an empty text block with backspace (if it's not the only block)
+    if (e.key === 'Backspace' && ed.textContent === '' && !ed.querySelector('img') &&
+        currentNote().blocks.length > 1) {
+      e.preventDefault();
+      removeBlock(bi);
+      const eds = $('blocks').querySelectorAll('.textblock');
+      if (eds.length) placeCaretAtEnd(eds[Math.min(bi, eds.length - 1) - (bi > 0 ? 1 : 0)] || eds[eds.length - 1]);
+    }
+  };
+  ed.onpaste = (e) => handlePaste(e, ed, b);
+  return ed;
+}
+
+/* image paste: downscale and insert inline */
+function handlePaste(e, ed, b) {
+  const items = (e.clipboardData || {}).items || [];
+  for (const it of items) {
+    if (it.type && it.type.startsWith('image/')) {
+      e.preventDefault();
+      const file = it.getAsFile();
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const MAX = 700;
+        let w = img.width, h = img.height;
+        if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        const data = c.toDataURL('image/jpeg', 0.75);
+        URL.revokeObjectURL(url);
+        ed.focus();
+        document.execCommand('insertImage', false, data);
+        b.html = ed.innerHTML;
+        touch(currentNote());
+      };
+      img.src = url;
+      return;
+    }
+  }
+  // plain text paste, strip outside formatting
+  const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+  if (text !== undefined) {
+    e.preventDefault();
+    document.execCommand('insertText', false, text);
+  }
+}
+
+/* ---------- tables ---------- */
+function tableAddRow(bi) {
+  const b = currentNote().blocks[bi];
+  b.rows.push(b.rows[0].map(() => []));
+  touch(currentNote()); renderBlocks();
+}
+function tableAddCol(bi) {
+  const b = currentNote().blocks[bi];
+  if (b.rows[0].length >= 10) return;
+  b.rows.forEach(r => r.push([]));
+  touch(currentNote()); renderBlocks();
+}
+function deselectTable() {
+  if (selectedTableBi === null) return;
+  selectedTableBi = null;
+  document.querySelectorAll('.block.tbl-selected').forEach(el => el.classList.remove('tbl-selected'));
+}
+function selectTable(bi) {
+  deselectTable();
+  selectedTableBi = bi;
+  const blocks = $('blocks').children;
+  if (blocks[bi]) blocks[bi].classList.add('tbl-selected');
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+}
+
+function renderTableBlock(b, bi) {
+  const scroll = document.createElement('div');
+  scroll.className = 'table-scroll';
+  const table = document.createElement('table');
+  table.className = 'ntable';
+
+  b.rows.forEach((row, ri) => {
+    const tr = document.createElement('tr');
+    row.forEach((cell) => {
+      const td = document.createElement(ri === 0 ? 'th' : 'td');
+      cell.forEach((item, ii) => td.appendChild(renderCellItem(item, cell)));
+      const add = document.createElement('div');
+      add.className = 'cell-add';
+      const aText = document.createElement('a');
+      aText.textContent = '+ text';
+      aText.onclick = (e) => { e.stopPropagation(); cell.push({ kind: 'text', text: '', done: false }); touch(currentNote()); renderBlocks(); focusNewItem(); };
+      const aCheck = document.createElement('a');
+      aCheck.textContent = '+ \u2611';
+      aCheck.title = 'add checklist item';
+      aCheck.onclick = (e) => { e.stopPropagation(); cell.push({ kind: 'check', text: '', done: false }); touch(currentNote()); renderBlocks(); focusNewItem(); };
+      add.appendChild(aText); add.appendChild(aCheck);
+      td.appendChild(add);
+      // clicking empty cell space selects the whole table
+      td.onclick = (e) => { if (e.target === td) selectTable(bi); };
+      tr.appendChild(td);
+    });
+    table.appendChild(tr);
+  });
+  scroll.appendChild(table);
+  return scroll;
+}
+
+let focusPending = false;
+function focusNewItem() { focusPending = true; setTimeout(() => {
+  if (!focusPending) return;
+  focusPending = false;
+  const els = document.querySelectorAll('.ci-text');
+  for (const el of els) if (!el.textContent.trim()) { el.focus(); return; }
+}, 0); }
+
+function renderCellItem(item, cell) {
+  const wrap = document.createElement('div');
+  wrap.className = 'cell-item' + (item.kind === 'check' && item.done ? ' done' : '');
+
+  if (item.kind === 'check') {
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !!item.done;
+    cb.onchange = () => {
+      item.done = cb.checked;
+      wrap.classList.toggle('done', cb.checked);
+      touch(currentNote());
+    };
+    wrap.appendChild(cb);
+  }
+
+  const txt = document.createElement('div');
+  txt.className = 'ci-text';
+  txt.contentEditable = 'true';
+  txt.spellcheck = false;
+  txt.textContent = item.text;
+  txt.onfocus = () => { deselectTable(); lastEditor = null; };
+  txt.oninput = () => { item.text = txt.textContent; touch(currentNote()); };
+  txt.onkeydown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const idx = cell.indexOf(item);
+      cell.splice(idx + 1, 0, { kind: item.kind, text: '', done: false });
+      touch(currentNote()); renderBlocks(); focusNewItem();
+    }
+    if (e.key === 'Backspace' && txt.textContent === '') {
+      e.preventDefault();
+      const idx = cell.indexOf(item);
+      cell.splice(idx, 1);
+      touch(currentNote()); renderBlocks();
+    }
+  };
+  wrap.appendChild(txt);
+
+  const del = document.createElement('a');
+  del.className = 'ci-del';
+  del.innerHTML = '&#10005;';
+  del.title = 'remove item';
+  del.onclick = () => {
+    const idx = cell.indexOf(item);
+    cell.splice(idx, 1);
+    touch(currentNote()); renderBlocks();
+  };
+  wrap.appendChild(del);
+  return wrap;
+}
+
+/* ---------- global keys ---------- */
+document.addEventListener('keydown', (e) => {
+  const mod = e.ctrlKey || e.metaKey;
+  if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
+  if (mod && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) {
+    e.preventDefault(); redo(); return;
+  }
+  if (selectedTableBi !== null) {
+    const editing = document.activeElement &&
+      (document.activeElement.isContentEditable || /INPUT|TEXTAREA/.test(document.activeElement.tagName));
+    if ((e.key === 'Delete' || e.key === 'Backspace') && !editing) {
+      e.preventDefault();
+      removeBlock(selectedTableBi);
+    }
+    if (e.key === 'Escape') deselectTable();
+  }
+});
+document.addEventListener('mousedown', (e) => {
+  if (selectedTableBi !== null && !e.target.closest('.block.tbl-selected')) deselectTable();
+});
+
+init();
+</script>
+</body>
+</html>
