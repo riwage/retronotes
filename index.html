@@ -55,7 +55,7 @@
   .topbar {
     background: var(--green-bg);
     border-bottom: 1px solid var(--border);
-    color: #444;
+    color: var(--text);
     padding: 4px 12px;
     font-size: 12px;
     display: flex;
@@ -251,6 +251,8 @@
   }
   .textblock ul, .textblock ol { margin: 4px 0; padding-left: 26px; }
   .textblock ul.dashed { list-style: none; padding-left: 14px; }
+  .textblock ul.dashed ul.dashed,
+  .textblock ul.checklist ul.checklist { padding-left: 28px; }
   .textblock ul.dashed li::before { content: "\2013\00a0"; color: inherit; }
   .textblock ul.checklist { list-style: none; padding-left: 14px; }
   .textblock ul.checklist li { display: flex; align-items: flex-start; gap: 6px; }
@@ -367,7 +369,7 @@
 
 <div class="topbar">
   <a id="theme-toggle" title="toggle dark mode" onclick="toggleTheme()" style="text-decoration:none; margin-right:auto;">&#9789; dark</a>
-  <span id="acct-area" class="hidden"><span id="acct-email"></span> &nbsp;<a onclick="logout()">log out</a></span>
+  <span id="acct-area" class="hidden"><span id="acct-email" style="color:var(--text);"></span> &nbsp;<a onclick="logout()">log out</a></span>
 </div>
 
 <div class="masthead">
@@ -417,9 +419,9 @@
     </div>
     <a class="forgot-link" id="forgot-link" onclick="forgotPassword()">forgot password?</a>
     <div class="login-error hidden" id="login-error"></div>
-    <label style="display:block; text-align:left; font-size:12px; margin-bottom:10px; cursor:pointer;">
-      <input type="checkbox" id="remember-me" checked style="accent-color:var(--green); vertical-align:middle;">
-      remember me on this device
+    <label style="display:flex; align-items:center; gap:7px; text-align:left; font-size:12px; margin-bottom:12px; cursor:pointer;">
+      <input type="checkbox" id="remember-me" checked style="accent-color:var(--green); margin:0; flex-shrink:0;">
+      <span>remember me on this device</span>
     </label>
     <button class="g-btn" id="auth-btn" onclick="submitAuth()">Sign in</button>
   </div>
@@ -519,7 +521,7 @@
       </div>
       <div class="note-date" id="note-date"></div>
       <input type="text" class="title-input" id="note-title" placeholder="untitled note"
-             oninput="onTitleInput()" onkeydown="if(event.key==='Enter'){event.preventDefault(); focusFirstText();}">
+             onblur="nameIfEmpty()" oninput="onTitleInput()" onkeydown="if(event.key==='Enter'){event.preventDefault(); focusFirstText();}">
       <div class="blocks" id="blocks"></div>
     </div>
     <div class="empty-msg" id="no-note-msg" style="text-align:center; padding:40px; font-size:13px;">
@@ -873,7 +875,8 @@ function renderList() {
   $('empty-pinned').classList.toggle('hidden', pc > 0);
   $('empty-notes').classList.toggle('hidden', nc > 0);
   $('empty-deleted').classList.toggle('hidden', bc > 0);
-  $('note-count').textContent = '(' + activeNotes().length + ')';
+  const total = activeNotes().length;
+  $('note-count').textContent = q ? '(' + (pc + nc) + ' of ' + total + ')' : '(' + total + ')';
 }
 
 /* ---------- open / create / trash / restore / duplicate ---------- */
@@ -884,6 +887,8 @@ function showNoNote() {
   $('no-note-msg').classList.remove('hidden');
 }
 function openNote(id) {
+  const prev = currentNote();
+  if (prev && prev.id !== id && !prev.deletedAt && !prev.title.trim()) prev.title = 'untitled note';
   currentId = id;
   clearCellSel();
   const n = currentNote();
@@ -904,6 +909,7 @@ function newNote() {
               blocks: [{ type: 'text', html: '' }] };
   notes.push(n);
   scheduleSave();
+  $('search').value = '';   // don't let an active search hide the new note
   animInId = n.id;
   openNote(n.id);
   const p = $('editor-panel');
@@ -939,9 +945,24 @@ function trashNote(id) {
 }
 function restoreNote(id) {
   const n = notes.find(x => x.id === id); if (!n) return;
-  delete n.deletedAt;
-  scheduleSave();
-  openNote(id);
+  const doRestore = () => {
+    delete n.deletedAt;
+    scheduleSave();
+    animInId = id;
+    openNote(id);
+    const p = $('editor-panel');
+    p.classList.remove('anim-pop');
+    void p.offsetWidth;
+    p.classList.add('anim-pop');
+  };
+  let animated = false;
+  for (const li of document.querySelectorAll('#list-deleted li')) {
+    const t = li.querySelector('.nl-title');
+    if (t && t.textContent === (n.title || 'untitled note')) {
+      li.classList.add('anim-out'); animated = true; break;
+    }
+  }
+  if (animated) setTimeout(doRestore, 160); else doRestore();
 }
 function purgeNote(id) {
   const n = notes.find(x => x.id === id);
@@ -971,6 +992,7 @@ function duplicateNote(srcNote) {
   notes.push(copy);
   if (src.lock && unlockedIds.has(src.id)) unlockedIds.add(copy.id);
   scheduleSave();
+  $('search').value = '';
   animInId = copy.id;
   openNote(copy.id);
   const p = $('editor-panel');
@@ -995,9 +1017,18 @@ function onTitleInput() {
   n.title = $('note-title').value;
   touch(n); renderList();
 }
+function nameIfEmpty() {
+  const n = currentNote(); if (!n) return;
+  if (!n.title.trim()) {
+    n.title = 'untitled note';
+    $('note-title').value = n.title;
+    touch(n); renderList();
+  }
+}
 function focusFirstText() {
   const n = currentNote(); if (!n) return;
   if (isLocked(n)) return;
+  nameIfEmpty();
   if (!n.blocks.length || n.blocks[0].type !== 'text') {
     n.blocks.unshift({ type: 'text', html: '' });
     touch(n); renderBlocks();
@@ -1261,6 +1292,24 @@ function renderTextBlock(b, bi) {
   ed.innerHTML = b.html || '';
 
   ed.onfocus = () => { lastEditor = { el: ed, block: b }; lastCellCtx = null; clearCellSel(); };
+  // clicking past the end of a line drops the caret after its last character
+  ed.onmouseup = (e) => {
+    const sel = window.getSelection();
+    if (!sel.rangeCount || !sel.isCollapsed) return;
+    let node = sel.anchorNode;
+    if (node && node.nodeType === 3) node = node.parentElement;
+    if (!node || !ed.contains(node)) return;
+    const line = node.closest('li, p, div, h1, h2, h3, pre, blockquote') || node;
+    if (!ed.contains(line)) return;
+    const r = document.createRange();
+    r.selectNodeContents(line);
+    const rects = r.getClientRects();
+    const last = rects[rects.length - 1];
+    if (last && e.clientX > last.right) {
+      r.collapse(false);
+      sel.removeAllRanges(); sel.addRange(r);
+    }
+  };
   ed.oninput = (e) => {
     b.html = ed.innerHTML;
     autoDashList(ed, b);
@@ -1269,6 +1318,28 @@ function renderTextBlock(b, bi) {
   ed.onkeydown = (e) => {
     if (e.key === 'Enter') {
       if (convertDashLineOnEnter(ed, b)) { e.preventDefault(); return; }
+      // enter on an empty nested item steps back out one indent level
+      const sel0 = window.getSelection();
+      let n0 = sel0.anchorNode;
+      if (n0 && n0.nodeType === 3) n0 = n0.parentElement;
+      const li0 = n0 && n0.closest && n0.closest('li');
+      if (li0 && ed.contains(li0) && li0.textContent.trim() === '') {
+        const depth = (() => { let d = 0, u = li0.closest('ul,ol');
+          while (u && ed.contains(u)) { d++; u = u.parentElement && u.parentElement.closest('ul,ol'); } return d; })();
+        if (depth > 1) {
+          e.preventDefault();
+          const wasDashed = !!li0.closest('ul.dashed');
+          const wasCheck = !!li0.closest('ul.checklist');
+          document.execCommand('outdent');
+          ed.querySelectorAll('ul ul').forEach(u => {
+            if (wasDashed) u.classList.add('dashed');
+            if (wasCheck) u.classList.add('checklist');
+          });
+          b.html = ed.innerHTML;
+          touch(currentNote());
+          return;
+        }
+      }
       setTimeout(() => {
         ed.querySelectorAll('ul.checklist li').forEach(li => {
           addCheckboxTo(li);
@@ -1488,6 +1559,55 @@ function applyCellSel() {
     if (ri >= ra && ri <= rb && ci >= ca && ci <= cb) td.classList.add('cell-sel');
   });
 }
+let cellClipboard = null;  // 2D array of cell item arrays
+
+function selBounds() {
+  if (!cellSel) return null;
+  return {
+    bi: cellSel.bi,
+    ra: Math.min(cellSel.r1, cellSel.r2), rb: Math.max(cellSel.r1, cellSel.r2),
+    ca: Math.min(cellSel.c1, cellSel.c2), cb: Math.max(cellSel.c1, cellSel.c2)
+  };
+}
+function copyCellSel(cut) {
+  const bb = selBounds(); if (!bb) return false;
+  const n = currentNote(); if (!n) return false;
+  const b = n.blocks[bb.bi]; if (!b || b.type !== 'table') return false;
+  cellClipboard = [];
+  const lines = [];
+  for (let r = bb.ra; r <= bb.rb; r++) {
+    const row = [], texts = [];
+    for (let c = bb.ca; c <= bb.cb; c++) {
+      row.push(JSON.parse(JSON.stringify(b.rows[r][c])));
+      texts.push(b.rows[r][c].map(i => i.text).join(' '));
+    }
+    cellClipboard.push(row);
+    lines.push(texts.join('\t'));
+  }
+  // also put it on the system clipboard as TSV, so it pastes into sheets/docs
+  try { navigator.clipboard.writeText(lines.join('\n')); } catch (e) {}
+  if (cut) deleteCellSelContents();
+  return true;
+}
+function pasteCellSel() {
+  const bb = selBounds(); if (!bb || !cellClipboard) return false;
+  const n = currentNote(); if (!n) return false;
+  const b = n.blocks[bb.bi]; if (!b || b.type !== 'table') return false;
+  for (let dr = 0; dr < cellClipboard.length; dr++) {
+    const tr = bb.ra + dr;
+    if (tr >= b.rows.length) b.rows.push(b.rows[0].map(() => []));
+    for (let dc = 0; dc < cellClipboard[dr].length; dc++) {
+      const tc = bb.ca + dc;
+      if (tc >= b.rows[0].length) continue;
+      b.rows[tr][tc] = JSON.parse(JSON.stringify(cellClipboard[dr][dc]));
+    }
+  }
+  const keep = { ...cellSel };
+  touch(n); renderBlocks();
+  cellSel = keep;
+  setTimeout(applyCellSel, 0);
+  return true;
+}
 function deleteCellSelContents() {
   if (!cellSel) return;
   const n = currentNote(); if (!n) return;
@@ -1696,6 +1816,18 @@ document.addEventListener('keydown', (e) => {
   }
   if (mod && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) {
     e.preventDefault(); redo(); return;
+  }
+
+  // spreadsheet-style clipboard for a selected range of table cells
+  if (cellSel && mod) {
+    const k = e.key.toLowerCase();
+    if (k === 'c') { e.preventDefault(); copyCellSel(false); return; }
+    if (k === 'x') { e.preventDefault(); copyCellSel(true); return; }
+    if (k === 'v') { e.preventDefault(); pasteCellSel(); return; }
+  }
+
+  if (cellSel && (e.key === 'Delete' || e.key === 'Backspace') && !isEditing()) {
+    e.preventDefault(); deleteCellSelContents(); return;
   }
 
   if (!isEditing()) {
