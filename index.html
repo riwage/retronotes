@@ -272,6 +272,7 @@
     padding: 5px 6px;
     vertical-align: top;
     min-width: 88px;
+    height: 30px;
     cursor: text;
   }
   table.ntable th { background: var(--green-bg); color: var(--green-dark); text-align: left; }
@@ -480,7 +481,7 @@
           <span style="width:6px;"></span>
           <span class="tbtn" title="checklist item (in a table cell)" onmousedown="toggleChecklist(event)">&#9745;</span>
           <span class="tbtn" title="add table" onclick="addTableBlock()">&#8862;</span>
-          <span class="tbtn" title="attach" onclick="toggleMenu(event,'attach-menu')">&#128206;</span>
+          <span class="tbtn" title="attach file" onclick="pickFile('file-any')">&#128206;</span>
           <span style="width:6px;"></span>
           <span class="tbtn" title="undo (ctrl+z)" onclick="undo()">&#8630;</span>
           <span class="tbtn" title="redo (ctrl+shift+z)" onclick="redo()">&#8631;</span>
@@ -506,12 +507,6 @@
           <div class="fmt-item" onmousedown="fmt(event,'formatBlock','blockquote')">&#124; Block Quote</div>
         </div>
 
-        <div class="dropdown hidden" id="attach-menu">
-          <div class="fmt-item" onclick="pickFile('file-photo')">&#128444; Choose Photo or Video</div>
-          <div class="fmt-item" onclick="pickFile('file-any')">&#128196; Attach File</div>
-          <div class="fmt-item" onclick="pickFile('file-camera')">&#128247; Take Photo</div>
-        </div>
-
         <div class="dropdown hidden" id="lock-menu" style="left:auto; right:6px;"></div>
       </div>
       <div class="note-date" id="note-date"></div>
@@ -532,9 +527,7 @@
   <div class="danger" onclick="ctxDeleteTable()">delete table</div>
 </div>
 
-<input type="file" id="file-photo" class="hidden" accept="image/*,video/*" onchange="handleAttach(this)">
 <input type="file" id="file-any" class="hidden" onchange="handleAttach(this)">
-<input type="file" id="file-camera" class="hidden" accept="image/*" capture="environment" onchange="handleAttach(this)">
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -567,6 +560,7 @@ let applyingHistory = false;
 const unlockedIds = new Set();
 const binUndo = [];         // ids of recently trashed notes, for cmd+z restore
 let copiedNote = null;
+let sidebarFocus = false; // true right after clicking a note in the sidebar
 const BIN_DAYS = 30;
 
 const $ = id => document.getElementById(id);
@@ -827,7 +821,7 @@ function noteLi(n) {
   li.querySelector('.nl-title').textContent = n.title || 'untitled note';
   li.querySelector('.nl-meta').textContent = d.toLocaleDateString() + ' ' +
     d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' · ' + preview(n);
-  li.onclick = () => openNote(n.id);
+  li.onclick = () => { openNote(n.id); sidebarFocus = true; };
   return li;
 }
 function renderList() {
@@ -922,6 +916,11 @@ function restoreNote(id) {
   openNote(id);
 }
 function purgeNote(id) {
+  const n = notes.find(x => x.id === id);
+  const name = (n && n.title) || 'untitled note';
+  let ok = true;
+  try { ok = confirm('delete "' + name + '" forever? this cannot be undone.'); } catch (e) {}
+  if (!ok) return;
   notes = notes.filter(x => x.id !== id);
   delete histories[id];
   scheduleSave();
@@ -966,12 +965,19 @@ function onTitleInput() {
 function focusFirstText() {
   const n = currentNote(); if (!n) return;
   if (isLocked(n)) return;
-  if (!n.blocks.length || n.blocks[0].type !== 'text' && !n.blocks.some(b => b.type === 'text')) {
+  if (!n.blocks.length || n.blocks[0].type !== 'text') {
     n.blocks.unshift({ type: 'text', html: '' });
     touch(n); renderBlocks();
   }
   const ed = $('blocks').querySelector('.textblock');
-  if (ed) placeCaretAtEnd(ed);
+  if (ed) placeCaretAtStart(ed);
+}
+function placeCaretAtStart(el) {
+  el.focus();
+  const r = document.createRange();
+  r.selectNodeContents(el); r.collapse(true);
+  const s = window.getSelection();
+  s.removeAllRanges(); s.addRange(r);
 }
 
 /* ---------- note locking ---------- */
@@ -1037,14 +1043,14 @@ async function tryUnlock() {
 /* ---------- menus ---------- */
 function toggleMenu(e, id) {
   e.stopPropagation();
-  for (const mid of ['fmt-menu', 'attach-menu', 'lock-menu']) {
+  for (const mid of ['fmt-menu', 'lock-menu']) {
     if (mid !== id) $(mid).classList.add('hidden');
   }
   $(id).classList.toggle('hidden');
 }
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.dropdown') && !e.target.closest('.tbtn')) {
-    ['fmt-menu', 'attach-menu', 'lock-menu'].forEach(id => $(id).classList.add('hidden'));
+    ['fmt-menu', 'lock-menu'].forEach(id => $(id).classList.add('hidden'));
   }
   if (!e.target.closest('#tbl-ctxmenu')) $('tbl-ctxmenu').classList.add('hidden');
 });
@@ -1170,6 +1176,9 @@ function renderTextBlock(b, bi) {
     touch(currentNote());
   };
   ed.onkeydown = (e) => {
+    if (e.key === 'Enter') {
+      if (convertDashLineOnEnter(ed, b)) { e.preventDefault(); return; }
+    }
     if (e.key === 'Tab') {
       e.preventDefault();
       document.execCommand('insertHTML', false, '&nbsp;&nbsp;&nbsp;&nbsp;');
@@ -1194,7 +1203,8 @@ function autoDashList(ed, b) {
   const sel = window.getSelection();
   if (!sel.anchorNode || sel.anchorNode.nodeType !== 3) return;
   const node = sel.anchorNode;
-  if (node.textContent === '- ' && sel.anchorOffset === 2) {
+  // browsers insert a non-breaking space at line ends, so match both
+  if (/^-[\s\u00a0]$/.test(node.textContent) && sel.anchorOffset === 2) {
     const parent = node.parentElement;
     if (parent && parent.closest('ul,ol')) return;
     node.textContent = '';
@@ -1202,6 +1212,37 @@ function autoDashList(ed, b) {
     markDashed();
     b.html = ed.innerHTML;
   }
+}
+
+/* pressing Enter on a "- something" line converts it into a dashed list retroactively */
+function convertDashLineOnEnter(ed, b) {
+  const sel = window.getSelection();
+  if (!sel.anchorNode) return false;
+  let lineEl = sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentElement : sel.anchorNode;
+  if (!ed.contains(lineEl)) return false;
+  if (lineEl.closest('ul,ol')) return false;
+  // find the line container (direct child of the editor, or the editor itself)
+  while (lineEl !== ed && lineEl.parentElement !== ed) lineEl = lineEl.parentElement;
+  const text = lineEl === ed ? ed.textContent : lineEl.textContent;
+  const m = text.match(/^-[\s\u00a0]+(.*)$/);
+  if (!m) return false;
+  // select the line, turn it into a list, strip the "- " prefix
+  const r = document.createRange();
+  r.selectNodeContents(lineEl === ed ? ed : lineEl);
+  sel.removeAllRanges(); sel.addRange(r);
+  document.execCommand('insertUnorderedList');
+  markDashed();
+  const li = window.getSelection().anchorNode;
+  let liEl = li.nodeType === 3 ? li.parentElement : li;
+  liEl = liEl.closest('li');
+  if (liEl) {
+    liEl.textContent = m[1];
+    placeCaretAtEnd(liEl);
+  }
+  document.execCommand('insertParagraph'); // start the next dashed item
+  b.html = ed.innerHTML;
+  touch(currentNote());
+  return true;
 }
 
 /* paste: images inline, otherwise plain text */
@@ -1242,7 +1283,7 @@ function insertImageFile(file, ed, b) {
 
 /* ---------- attachments ---------- */
 function pickFile(inputId) {
-  ['fmt-menu','attach-menu','lock-menu'].forEach(id => $(id).classList.add('hidden'));
+  ['fmt-menu','lock-menu'].forEach(id => $(id).classList.add('hidden'));
   $(inputId).click();
 }
 function targetEditor() {
@@ -1484,6 +1525,8 @@ function renderCellItem(block, bi, ri, ci, item, cell) {
 document.addEventListener('mouseup', () => { dragStart = null; });
 document.addEventListener('mousedown', (e) => {
   if (cellSel && !e.target.closest('[data-cell]') && !e.target.closest('#tbl-ctxmenu')) clearCellSel();
+  // clicking anywhere outside the sidebar note lists drops sidebar selection
+  if (!e.target.closest('#list-notes') && !e.target.closest('#list-pinned')) sidebarFocus = false;
 });
 
 /* ---------- global keys ---------- */
@@ -1515,7 +1558,7 @@ document.addEventListener('keydown', (e) => {
     }
     if ((e.key === 'Delete' || e.key === 'Backspace')) {
       if (cellSel) { e.preventDefault(); deleteCellSelContents(); return; }
-      if (currentNote()) { e.preventDefault(); trashCurrent(); return; }
+      if (sidebarFocus && currentNote()) { e.preventDefault(); trashCurrent(); return; }
     }
   }
   if (e.key === 'Escape') { clearCellSel(); $('tbl-ctxmenu').classList.add('hidden'); }
