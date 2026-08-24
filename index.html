@@ -939,17 +939,27 @@ function trashNote(id) {
   const n = notes.find(x => x.id === id); if (!n) return;
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
 
-  // remember what sits below this note, so we can select it afterwards
-  const list = activeNotes();
-  const pos = list.findIndex(x => x.id === id);
-  const successor = pos !== -1 ? (list[pos + 1] || list[pos - 1]) : null;
+  // pick the note visually below this one, using the rendered sidebar order
+  let successorId = null;
+  const rows = [...document.querySelectorAll('#list-pinned li[data-id], #list-notes li[data-id]')];
+  const at = rows.findIndex(li => li.dataset.id === id);
+  if (at !== -1) {
+    const nextLi = rows[at + 1] || rows[at - 1];
+    if (nextLi) successorId = nextLi.dataset.id;
+  }
+  if (!successorId) {
+    const list = activeNotes();
+    const pos = list.findIndex(x => x.id === id);
+    if (pos !== -1) { const alt = list[pos + 1] || list[pos - 1]; if (alt) successorId = alt.id; }
+  }
 
   const finish = () => {
     n.deletedAt = now();
     binUndo.push(id);
     scheduleSave();
     if (currentId === id) {
-      if (successor) { openNote(successor.id); sidebarFocus = true; }
+      const succ = successorId && notes.find(x => x.id === successorId && !x.deletedAt);
+      if (succ) { openNote(succ.id); sidebarFocus = true; }
       else { showNoNote(); renderList(); }
     } else renderList();
   };
@@ -1038,7 +1048,7 @@ function nameIfEmpty() {
   if (!n.title.trim()) {
     n.title = 'untitled note';
     $('note-title').value = n.title;
-    touch(n); renderList();
+    scheduleSave(); renderList();   // don't bump 'updated': it would reshuffle the list
   }
 }
 function focusFirstText() {
@@ -1215,7 +1225,10 @@ function normalizeChecklists(ed) {
     li.classList.toggle('done', on);
   });
   // any list that isn't a checklist must not keep stray checkboxes
-  ed.querySelectorAll('ul:not(.checklist) input[type=checkbox], ol input[type=checkbox]').forEach(x => x.remove());
+  ed.querySelectorAll('input[type=checkbox]').forEach(x => {
+    const ul = x.closest('ul');
+    if (!ul || !ul.classList.contains('checklist')) x.remove();
+  });
 }
 function addCheckboxTo(li) {
   if (li.querySelector('input[type=checkbox]')) return;
@@ -1360,11 +1373,16 @@ function renderTextBlock(b, bi) {
           e.preventDefault();
           const wasDashed = !!li0.closest('ul.dashed');
           document.execCommand('outdent');
-          ed.querySelectorAll('ul ul').forEach(u => {
-            if (wasDashed) u.classList.add('dashed');
-            if (inCheck) u.classList.add('checklist');
-          });
-          if (inCheck) normalizeChecklists(ed);
+          ed.querySelectorAll('ul.checklist ul:not(.checklist)').forEach(u => u.classList.add('checklist'));
+          ed.querySelectorAll('ul.dashed ul:not(.dashed)').forEach(u => u.classList.add('dashed'));
+          if (wasDashed) {
+            const sel3 = window.getSelection();
+            let n3 = sel3.anchorNode;
+            if (n3 && n3.nodeType === 3) n3 = n3.parentElement;
+            const ul3 = n3 && n3.closest && n3.closest('ul');
+            if (ul3) ul3.classList.add('dashed');
+          }
+          normalizeChecklists(ed);
           b.html = ed.innerHTML;
           touch(currentNote());
           return;
@@ -1403,14 +1421,19 @@ function renderTextBlock(b, bi) {
       if (node && node.nodeType === 3) node = node.parentElement;
       const li = node && node.closest && node.closest('li');
       if (li && ed.contains(li)) {
-        const wasDashed = !!li.closest('ul.dashed');
-        const wasCheck = !!li.closest('ul.checklist');
+        const srcUl = li.closest('ul, ol');
+        const cls = srcUl ? srcUl.className : '';
         document.execCommand(e.shiftKey ? 'outdent' : 'indent');
-        // keep the nested list styled the same as its parent
-        ed.querySelectorAll('ul ul').forEach(u => {
-          if (wasDashed) u.classList.add('dashed');
-          if (wasCheck) u.classList.add('checklist');
-        });
+        // the new nested list must inherit the type, or its checkboxes get stripped
+        const sel2 = window.getSelection();
+        let n2 = sel2.anchorNode;
+        if (n2 && n2.nodeType === 3) n2 = n2.parentElement;
+        const li2 = n2 && n2.closest && n2.closest('li');
+        const ul2 = li2 && li2.closest('ul, ol');
+        if (ul2 && cls) ul2.className = cls;
+        ed.querySelectorAll('ul.checklist ul:not(.checklist)').forEach(u => u.classList.add('checklist'));
+        ed.querySelectorAll('ul.dashed ul:not(.dashed)').forEach(u => u.classList.add('dashed'));
+        normalizeChecklists(ed);
       } else {
         document.execCommand('insertHTML', false, '&nbsp;&nbsp;&nbsp;&nbsp;');
       }
