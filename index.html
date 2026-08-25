@@ -255,13 +255,24 @@
     color: var(--text-soft);
   }
   .textblock ul, .textblock ol { margin: 4px 0; padding-left: 26px; }
-  .textblock ul.dashed { list-style: none; padding-left: 14px; }
+  /* the dash lives in the list marker box, so the caret can never sit before it */
+  .textblock ul.dashed { list-style-type: "\2013\00a0\00a0"; padding-left: 22px; }
+  .textblock ul.dashed li::marker { color: inherit; }
   .textblock ul.dashed ul.dashed,
   .textblock ul.checklist ul.checklist { padding-left: 28px; }
-  .textblock ul.dashed li::before { content: "\2013\00a0"; color: inherit; }
+  @supports not (list-style-type: "-") {
+    .textblock ul.dashed { list-style: none; padding-left: 14px; }
+    .textblock ul.dashed li::before {
+      content: "\2013\00a0"; color: inherit;
+      user-select: none; -webkit-user-select: none;
+    }
+  }
   .textblock ul.checklist { list-style: none; padding-left: 14px; }
   .textblock ul.checklist li { display: flex; align-items: flex-start; gap: 6px; }
-  .textblock ul.checklist li input[type=checkbox] { margin: 3px 0 0 0; accent-color: var(--green); cursor: pointer; }
+  .textblock ul.checklist li input[type=checkbox] {
+    margin: 3px 0 0 0; accent-color: var(--green); cursor: pointer;
+    user-select: none; -webkit-user-select: none; flex: 0 0 auto;
+  }
   .textblock ul.checklist li.done { color: var(--text-soft); text-decoration: line-through; }
   .textblock ul.checklist li.done input[type=checkbox] { text-decoration: none; }
   .textblock ul.checklist li > *:not(input) { text-decoration: inherit; }
@@ -301,7 +312,10 @@
     user-select: text;
   }
   .cell-item.done .ci-text { text-decoration: line-through; color: #999; }
-  .cell-item .ci-dash { flex-shrink: 0; color: inherit; }
+  .cell-item .ci-dash {
+    flex-shrink: 0; color: inherit;
+    user-select: none; -webkit-user-select: none;
+  }
   @keyframes rn-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
   @keyframes rn-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(-14px); } }
   @keyframes rn-pop { from { opacity: 0; transform: scale(0.985); } to { opacity: 1; transform: none; } }
