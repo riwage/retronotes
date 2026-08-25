@@ -2,7 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="retronotes">
+<meta name="theme-color" content="#2e8b2e">
 <title>retronotes</title>
 <link rel="icon" type="image/svg+xml" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g stroke="%232e8b2e" stroke-width="8" stroke-linecap="round"><line x1="50" y1="6" x2="50" y2="26"/><line x1="50" y1="94" x2="50" y2="74"/><line x1="6" y1="50" x2="26" y2="50"/><line x1="94" y1="50" x2="74" y2="50"/><line x1="19" y1="19" x2="33" y2="33"/><line x1="81" y1="81" x2="67" y2="67"/><line x1="19" y1="81" x2="33" y2="67"/><line x1="81" y1="19" x2="67" y2="33"/></g><g fill="%232e8b2e"><polygon points="50,45 39,24 61,24"/><polygon points="50,55 39,76 61,76"/><polygon points="45,50 24,39 24,61"/><polygon points="55,50 76,39 76,61"/><polygon points="42,42 24,36 36,24"/><polygon points="58,58 76,64 64,76"/><polygon points="42,58 36,76 24,64"/><polygon points="58,42 64,24 76,36"/></g></svg>'>
 <style>
@@ -368,6 +373,23 @@
   .hr-dotted { border: none; border-top: 1px dotted var(--border); margin: 12px 0; }
 
   .hidden { display: none !important; }
+
+  /* ios safari zooms into any focused field whose text is under 16px.
+     on touch devices we bump editable text to 16px so it never zooms. */
+  @media (pointer: coarse) {
+    input, textarea, select,
+    .textblock, .ci-text, .title-input, .searchbox, .login-box input {
+      font-size: 16px !important;
+    }
+    table.ntable { font-size: 16px; }
+    body { -webkit-text-size-adjust: 100%; }
+  }
+
+  /* keep the app from rubber-banding like a webpage when installed */
+  @media (display-mode: standalone) {
+    body { overscroll-behavior-y: none; }
+  }
+
   @media (max-width: 720px) {
     .wrap { flex-direction: column; }
     .sidebar { width: 100%; }
