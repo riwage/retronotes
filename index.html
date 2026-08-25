@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="retronotes">
 <meta name="theme-color" content="#2e8b2e">
 <title>retronotes</title>
@@ -61,7 +61,8 @@
     background: var(--green-bg);
     border-bottom: 1px solid var(--border);
     color: var(--text);
-    padding: 4px 12px;
+    padding: calc(4px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right))
+             4px calc(12px + env(safe-area-inset-left));
     font-size: 12px;
     display: flex;
     justify-content: flex-end;
@@ -69,7 +70,10 @@
   }
   .topbar a { color: var(--green-dark); }
 
-  .masthead { padding: 14px 18px 6px 18px; display: flex; align-items: center; gap: 12px; }
+  .masthead {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px calc(18px + env(safe-area-inset-right)) 6px calc(18px + env(safe-area-inset-left));
+  }
   .logo-mark { width: 34px; height: 34px; flex-shrink: 0; }
   .logo {
     font-family: "Trebuchet MS", Tahoma, sans-serif;
@@ -79,7 +83,11 @@
     letter-spacing: -1px;
   }
 
-  .wrap { display: flex; gap: 14px; padding: 10px 18px 40px 18px; align-items: flex-start; }
+  .wrap {
+    display: flex; gap: 14px; align-items: flex-start;
+    padding: 10px calc(18px + env(safe-area-inset-right))
+             calc(40px + env(safe-area-inset-bottom)) calc(18px + env(safe-area-inset-left));
+  }
   .sidebar { width: 260px; flex-shrink: 0; }
   .main { flex: 1; min-width: 0; }
 
@@ -388,6 +396,11 @@
 
   .hidden { display: none !important; }
 
+  /* on phones the account bar sticks to the top so it's always reachable */
+  @media (max-width: 720px) {
+    .topbar { position: sticky; top: 0; z-index: 40; }
+  }
+
   /* ios safari zooms into any focused field whose text is under 16px.
      on touch devices we bump editable text to 16px so it never zooms. */
   @media (pointer: coarse) {
@@ -413,7 +426,8 @@
 <body>
 
 <div class="topbar">
-  <a id="theme-toggle" title="toggle dark mode" onclick="toggleTheme()" style="text-decoration:none; margin-right:auto;">&#9789; dark</a>
+  <a id="theme-toggle" title="toggle dark mode" onclick="toggleTheme()" style="text-decoration:none;">&#9789; dark</a>
+  <span style="margin-right:auto; margin-left:10px; color:var(--text-soft); font-size:10px; align-self:center;">v19</span>
   <span id="acct-area" class="hidden"><span id="acct-email" style="color:var(--text);"></span> &nbsp;<a onclick="logout()">log out</a></span>
 </div>
 
